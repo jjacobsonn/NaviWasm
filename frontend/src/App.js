@@ -1,46 +1,56 @@
-import React, { useEffect, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import './sentry'; // Initialize Sentry for error tracking
-
-// Load the WASM module dynamically
-async function loadWasm() {
-  // Adjust the path based on your wasm-pack output
-  return await import('../../wasm/pkg');
-}
-
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN || 'YOUR_MAPBOX_ACCESS_TOKEN';
+// filepath: /Users/cjacobson/git/NaviWasm/frontend/src/App.js
+import React from 'react';
+import './App.css';
 
 function App() {
-  const [wasmModule, setWasmModule] = useState(null);
-  const [path, setPath] = useState("");
-
-  useEffect(() => {
-    // Initialize the map
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [-74.5, 40],
-      zoom: 9
-    });
-    // Dynamically load the WASM module
-    loadWasm().then(module => {
-      setWasmModule(module);
-      // Example: call find_path with dummy data
-      const computedPath = module.find_path("start", "end");
-      setPath(computedPath);
-    }).catch(err => console.error(err));
-    return () => map.remove();
-  }, []);
-
   return (
-    <div>
-      <div id="map" data-testid="map-container" style={{ width: '100%', height: '100vh' }} />
-      <div>
-        {/* Display the computed path from the WASM module */}
-        {path && <p>Computed Path: {path}</p>}
-      </div>
+    <div className="app-container">
+      <header className="app-header">
+        <h1>Welcome to NaviWasm</h1>
+      </header>
+      <main className="app-main">
+        <p>Your project is up and running with a professional, modern look.</p>
+      </main>
+      <footer className="app-footer">
+        <p>&copy; 2025 NaviWasm. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
 
 export default App;
+```
+
+/* filepath: /Users/cjacobson/git/NaviWasm/frontend/src/App.css */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  color: #343a40;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.app-header {
+  background-color: #4a148c; /* deep purple for a professional vibe */
+  padding: 1.5rem;
+  color: #ffffff;
+  text-align: center;
+}
+
+.app-main {
+  padding: 2rem;
+  line-height: 1.6;
+}
+
+.app-footer {
+  background-color: #4a148c;
+  padding: 1rem;
+  text-align: center;
+  color: #ffffff;
+}
