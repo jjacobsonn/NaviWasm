@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 
-mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
+// Consider moving the access token to an environment variable for production
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN || 'YOUR_MAPBOX_ACCESS_TOKEN';
 
 function App() {
   useEffect(() => {

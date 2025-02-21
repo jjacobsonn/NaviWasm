@@ -1,15 +1,14 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
 
+app = FastAPI()
 
+class NavigationRequest(BaseModel):
+    start: list[float]
+    end: list[float]
 
-
-
-
-
-
-
-
-
-
-
-
-    return path    path = {"route": [req.start, req.end]}  # Placeholder for computed path    # ...integration with Rust Wasm for pathfinding...async def navigate(req: NavigationRequest):@app.post("/navigate")    end: list[float]    start: list[float]class NavigationRequest(BaseModel):app = FastAPI()from pydantic import BaseModelfrom fastapi import FastAPI
+@app.post("/navigate")
+async def navigate(req: NavigationRequest):
+    # ...integration with Rust Wasm for pathfinding...
+    path = {"route": [req.start, req.end]}  # Placeholder for computed path
+    return path
