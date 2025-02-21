@@ -16,15 +16,17 @@ This project includes:
 2. Backend setup:
    - Navigate to `/Users/cjacobson/git/NaviWasm/backend`
    - Install dependencies: `pip install -r requirements.txt`
+   - Set environment variables in a `.env` file (see `.env.sample`).
 
 3. Frontend setup:
    - Navigate to `/Users/cjacobson/git/NaviWasm/frontend`
-   - Run: `npm install` then `npm start` to start development.
+   - Run: `npm install` then `npm run build` for production build.
+   - Serve the built files via a static server (or integrate with the backend).
 
 4. Docker Compose:
    - From the project root, run: `docker-compose up` to start all services.
 
 ## Further Enhancements
-- Improve WASM integration with actual pathfinding logic.
-- Add unit and integration testing.
+- Integrate comprehensive unit and integration tests.
+- Enhance WASM module with actual pathfinding logic.
 - Configure CI/CD for automated builds and deployments.

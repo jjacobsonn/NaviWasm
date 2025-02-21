@@ -1,0 +1,38 @@
+# Environment files
+.env
+.env.*
+*.env
+
+# Node & React
+node_modules/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+
+# Rust
+/wasm/pkg/
+target/
+
+# Logs
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Sensitive files
+secrets/

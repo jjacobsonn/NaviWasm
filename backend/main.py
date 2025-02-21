@@ -1,5 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("navigation-backend")
 
 app = FastAPI()
 
@@ -9,13 +14,21 @@ class NavigationRequest(BaseModel):
 
 @app.post("/navigate")
 async def navigate(req: NavigationRequest):
-    # ...integration with Rust Wasm for pathfinding...
-    path = {"route": [req.start, req.end]}  # Placeholder for computed path
-    return path
+    try:
+        logger.info("Received navigation request: %s", req)
+        # ...integration with Rust Wasm for pathfinding...
+        path = {"route": [req.start, req.end]}  # Placeholder for computed path
+        return path
+    except Exception as e:
+        logger.error("Error in /navigate: %s", e)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.post("/wasm-path")
 async def wasm_path(req: NavigationRequest):
-    # Future integration: call the WASM module via a microservice or FFI solution.
-    # For now, simulate a response.
-    simulated = {"route": [req.start, req.end], "note": "Result from WASM module would appear here."}
-    return simulated
+    try:
+        logger.info("Received wasm_path request: %s", req)
+        simulated = {"route": [req.start, req.end], "note": "Result from WASM module would appear here."}
+        return simulated
+    except Exception as e:
+        logger.error("Error in /wasm-path: %s", e)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
