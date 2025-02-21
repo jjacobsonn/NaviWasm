@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import './sentry'; // Initialize Sentry for error tracking
 
 // Load the WASM module dynamically
 async function loadWasm() {
