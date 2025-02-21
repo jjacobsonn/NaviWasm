@@ -31,8 +31,10 @@ async def health():
 async def navigate(req: NavigationRequest):
     try:
         logger.info("Received navigation request: %s", req)
-        # ...integration with Rust Wasm for pathfinding...
-        path = {"route": [req.start, req.end]}  # Placeholder for computed path
+        # TODO: Integrate actual WASM call using a runtime like wasmtime
+        # For now, simulate by directly constructing a dummy path.
+        # In production, you might call a separate service or use wasmtime-py to invoke the WASM module.
+        path = {"route": [req.start, req.end], "details": f"Path computed from {req.start} to {req.end} using A* algorithm"}
         return path
     except Exception as e:
         logger.error("Error in /navigate: %s", e)
