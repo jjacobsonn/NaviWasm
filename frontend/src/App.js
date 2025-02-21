@@ -33,7 +33,7 @@ function App() {
 
   return (
     <div>
-      <div id="map" style={{ width: '100%', height: '100vh' }} />
+      <div id="map" data-testid="map-container" style={{ width: '100%', height: '100vh' }} />
       <div>
         {/* Display the computed path from the WASM module */}
         {path && <p>Computed Path: {path}</p>}

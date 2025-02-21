@@ -26,6 +26,16 @@ This project includes:
 4. Docker Compose:
    - From the project root, run: `docker-compose up` to start all services.
 
+## Testing and Linting
+
+### Frontend Tests
+1. Navigate to `/Users/cjacobson/git/NaviWasm/frontend`
+2. Run tests via: `npm test`
+
+### Linting
+1. Ensure ESLint is installed: `npm install eslint --save-dev`
+2. Run: `npx eslint .` from the frontend folder
+
 ## Further Enhancements
 - Integrate comprehensive unit and integration tests.
 - Enhance WASM module with actual pathfinding logic.
