@@ -1,12 +1,23 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import logging
+import os
+import sentry_sdk
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("navigation-backend")
 
-app = FastAPI()
+# Initialize Sentry if DSN is provided via environment variable
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(dsn=sentry_dsn, traces_sample_rate=1.0)
+    # Attach Sentry ASGI middleware
+    app = FastAPI()
+    app.add_middleware(SentryAsgiMiddleware)
+else:
+    app = FastAPI()
 
 class NavigationRequest(BaseModel):
     start: list[float]
