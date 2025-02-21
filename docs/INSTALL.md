@@ -1,35 +1,28 @@
-# Installing wasm-pack
+# Installing wasm-pack and Rust Toolchain
 
-The error "zsh: command not found: wasm-pack" indicates that wasm-pack is not installed on your system. Follow these steps to install it:
+The error you received indicates that Cargo is missing. wasm-pack requires Cargo, which is installed as part of the Rust toolchain.
 
-## Using Homebrew (recommended)
-1. Ensure Homebrew is installed. If not, install it from [https://brew.sh/](https://brew.sh/).
-2. Open your terminal and run:
-   ```
-   brew install wasm-pack
-   ```
-3. Verify the installation:
-   ```
-   wasm-pack --version
-   ```
+## Step 1: Install Rust and Cargo
+Run the following command in your terminal:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+Follow the on-screen instructions to install Rust and Cargo.
 
-## Manual Installation
-Alternatively, install wasm-pack via the official installer:
-1. Run the following command in your terminal:
-   ```
-   curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-   ```
-2. Follow any prompts. After installation, verify with:
-   ```
-   wasm-pack --version
-   ```
+## Step 2: Verify Installation
+Restart your terminal and run:
+```
+cargo --version
+wasm-pack --version
+```
+This ensures both Cargo and wasm-pack are installed correctly.
 
-## Next Steps
-After installing wasm-pack, navigate to `/Users/cjacobson/git/NaviWasm/wasm` and run:
+## Step 3: Build the WASM Module
+Navigate to `/Users/cjacobson/git/NaviWasm/wasm` and run:
 ```
 wasm-pack build
 ```
-This will create the WASM package in `/Users/cjacobson/git/NaviWasm/wasm/pkg`.
+This should compile your WASM module and place the artifacts in `/Users/cjacobson/git/NaviWasm/wasm/pkg`.
 
 For more details, visit the [wasm-pack documentation](https://rustwasm.github.io/wasm-pack/installer/).
 

@@ -1,14 +1,21 @@
 version: '3.8'
 services:
   backend:
-    build: .
+    build:
+      context: .ext: ./backend
+      dockerfile: Dockerfileockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-  frontend:
+    volumes::
+      - ./backend:/appp
+  frontend::
     build: ./frontend
-    ports:
+    ports:/frontend
       - "3000:3000"
-    environment:
-      - REACT_APP_MAPBOX_ACCESS_TOKEN=${REACT_APP_MAPBOX_ACCESS_TOKEN}
+    environment:    ports:
+
+
+
+
+      - REACT_APP_MAPBOX_ACCESS_TOKEN=${REACT_APP_MAPBOX_ACCESS_TOKEN}    environment:
+      - REACT_APP_MAPBOX_ACCESS_TOKEN=${REACT_APP_MAPBOX_ACCESS_TOKEN}      - "3000:3000"
