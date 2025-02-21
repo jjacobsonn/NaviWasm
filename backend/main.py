@@ -23,6 +23,10 @@ class NavigationRequest(BaseModel):
     start: list[float]
     end: list[float]
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 @app.post("/navigate")
 async def navigate(req: NavigationRequest):
     try:
