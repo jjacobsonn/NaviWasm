@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+  # ...add additional services (e.g., front-end) as needed...
