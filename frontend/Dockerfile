@@ -1,17 +1,17 @@
-FROM node:14-alpine
+FROM node:18
+
+# Set the Node option to use the legacy OpenSSL provider.
+ENV NODE_OPTIONS=--openssl-legacy-provider
 
 WORKDIR /app
 
-# Install dependencies
+# Copy package files and install dependencies.
 COPY package*.json ./
 RUN npm install
 
-# Copy source files and build the app
+# Copy the rest of the files.
 COPY . .
-RUN npm run build
 
-# Expose port (adjust if needed)
 EXPOSE 3000
 
-# Serve the built app using a simple static server (install 'serve' if not already)
-CMD ["npx", "serve", "-s", "build", "-l", "3000"]
+CMD ["npm", "start"]
