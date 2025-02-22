@@ -3,8 +3,6 @@ body, html {
     margin: 0;
     padding: 0;
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
-    color: #343a40;
 }
 
 /* Main container */
@@ -67,3 +65,5 @@ body, html {
     text-align: center;
     color: #ffffff;
 }
+
+/* Add additional styles as needed */
