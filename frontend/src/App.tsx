@@ -6,25 +6,28 @@ import FeaturesSection from "./components/FeaturesSection";
 import ContactSection from "./components/ContactSection";
 
 const App: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode] = useState(false);
 
   return (
-    // Apply the "dark" class conditionally for dark mode styling
-    <div className={darkMode ? "dark" : ""}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-500">
-        <Navigation darkMode={darkMode} setDarkMode={setDarkMode} />
-        <main>
-          <HeroSection />
-          <MapSection />
-          <FeaturesSection />
-          <ContactSection />
-        </main>
-      </div>
+    <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
+      <header className="bg-white shadow-lg">
+        <Navigation />
+      </header>
+      <main>
+        <HeroSection />
+        <MapSection />
+        <FeaturesSection />
+        <ContactSection />
+      </main>
+      <footer className="bg-gray-800 text-white p-4 text-center">
+        <p>&copy; 2025 NaviWasm. All rights reserved.</p>
+      </footer>
     </div>
   );
 };
 
-export default App;import React from "react";
+export default App;
+import React from "react";
 import { motion } from "framer-motion";
 
 const HeroSection: React.FC = () => {
@@ -50,7 +53,8 @@ const HeroSection: React.FC = () => {
   );
 };
 
-export default HeroSection;import React from "react";
+export default HeroSection;
+import React from "react";
 import { motion } from "framer-motion";
 
 const HeroSection: React.FC = () => {
