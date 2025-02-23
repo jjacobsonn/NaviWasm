@@ -8,10 +8,10 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
-      <header className="bg-white shadow-lg">
+      <header className="fixed top-0 left-0 right-0 bg-white shadow-lg z-50">
         <Navigation />
       </header>
-      <main>
+      <main className="pt-16"> {/* Add padding-top to account for fixed header */}
         <HeroSection />
         <MapSection />
         <section id="features" className="py-12 px-4">
