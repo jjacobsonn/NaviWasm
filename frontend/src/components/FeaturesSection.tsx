@@ -52,11 +52,15 @@ const FeaturesSection: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: index * 0.2 }}
-              className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200"
+              className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 h-full flex flex-col"
             >
-              <feature.icon className="h-8 w-8 text-purple-600 mb-4" />
-              <h3 className="text-xl font-semibold font-poppins mb-2 text-gray-900">{feature.title}</h3>
-              <p className="text-gray-600 font-inter">{feature.description}</p>
+              <div className="flex-1 flex items-center justify-center mb-4">
+                <feature.icon className="h-8 w-8 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-semibold font-poppins mb-2 text-gray-900 text-center">
+                {feature.title}
+              </h3>
+              <p className="text-gray-600 font-inter text-center">{feature.description}</p>
             </motion.div>
           ))}
         </div>
