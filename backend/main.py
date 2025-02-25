@@ -29,15 +29,25 @@ async def health():
 
 # Initialize Wasmtime to load the WASM module once at startup.
 wasm_store = wasmtime.Store()
-wasm_pkg_path = os.path.join(os.path.dirname(__file__), '../wasm/pkg/wasm_bg.wasm')  # Updated path
+wasm_pkg_path = os.path.join(os.path.dirname(__file__), '../wasm/pkg/wasm_bg.wasm')
 try:
     with open(wasm_pkg_path, 'rb') as f:
         wasm_bytes = f.read()
     wasm_module = wasmtime.Module(wasm_store.engine, wasm_bytes)
     linker = wasmtime.Linker(wasm_store.engine)
+    
+    # Add WASM memory
+    memory = wasmtime.Memory(wasm_store, wasmtime.MemoryType(minimum=1, maximum=None))
+    linker.define("env", "memory", memory)
+    
+    # Initialize externref table
+    table_type = wasmtime.TableType(wasmtime.ValType.externref(), 0, None)
+    table = wasmtime.Table(wasm_store, table_type)
+    linker.define("env", "__wbindgen_externref_table", table)
+    
     wasm_instance = linker.instantiate(wasm_store, wasm_module)
-    # Exported function 'find_path'
     find_path_func = wasm_instance.exports(wasm_store)["find_path"]
+    logger.info("Successfully loaded WASM module")
 except Exception as e:
     logger.error("Failed to load WASM module: %s", e)
     find_path_func = None
