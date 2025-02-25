@@ -20,10 +20,10 @@ const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className={`px-6 py-4 transition-all duration-300 ${
+    <nav className={`px-6 lg:px-8 py-4 transition-all duration-300 ${
       isScrolled ? 'bg-white/90 backdrop-blur-sm' : 'bg-transparent'
     }`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4">
         <div className="text-xl font-bold text-gray-800">NaviWasm</div>
         <ul className="flex space-x-8">
           {[
