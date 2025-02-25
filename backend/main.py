@@ -29,7 +29,7 @@ async def health():
 
 # Initialize Wasmtime to load the WASM module once at startup.
 wasm_store = wasmtime.Store()
-wasm_pkg_path = os.path.join(os.path.dirname(__file__), '../wasm/pkg/module_bg.wasm')
+wasm_pkg_path = os.path.join(os.path.dirname(__file__), '../wasm/pkg/wasm_bg.wasm')  # Updated path
 try:
     with open(wasm_pkg_path, 'rb') as f:
         wasm_bytes = f.read()
