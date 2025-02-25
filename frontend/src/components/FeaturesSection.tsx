@@ -1,33 +1,34 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { CheckIcon } from '@heroicons/react/24/solid';
 
 const features = [
   {
     title: 'WebAssembly Performance',
-    description: 'Lightning-fast pathfinding algorithms compiled directly from Rust to WebAssembly.',
-    icon: '⚡'
+    description: 'Lightning-fast pathfinding with Rust-compiled WebAssembly for unparalleled speed.',
+    icon: CheckIcon,
   },
   {
     title: 'Real-time Updates',
-    description: 'Live route updates and dynamic path recalculation based on changing conditions.',
-    icon: '🔄'
+    description: 'Dynamic route adjustments with live data for the most efficient navigation.',
+    icon: CheckIcon,
   },
   {
     title: 'Advanced Visualization',
-    description: 'Interactive 3D mapping powered by MapboxGL with custom layer rendering.',
-    icon: '🗺️'
+    description: 'Stunning 3D maps powered by MapboxGL with custom, interactive layers.',
+    icon: CheckIcon,
   },
   {
     title: 'Scalable Architecture',
-    description: 'Built on FastAPI and React with containerized deployment support.',
-    icon: '🏗️'
-  }
+    description: 'Robust deployment with FastAPI, React, and Docker for enterprise-grade scalability.',
+    icon: CheckIcon,
+  },
 ];
 
 const FeaturesSection: React.FC = () => {
   return (
-    <section id="features" className="py-20 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4">
+    <section id="features" className="py-24 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -35,10 +36,14 @@ const FeaturesSection: React.FC = () => {
           transition={{ duration: 0.8 }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>
-          <p className="text-xl text-gray-600">Discover what makes our navigation system unique</p>
+          <h2 className="text-4xl font-bold font-poppins mb-4 bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
+            Cutting-Edge Features
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto font-inter">
+            Discover why developers and businesses love our navigation system
+          </p>
         </motion.div>
-        
+
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
             <motion.div
@@ -47,11 +52,11 @@ const FeaturesSection: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: index * 0.2 }}
-              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+              className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200"
             >
-              <div className="text-4xl mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
+              <feature.icon className="h-8 w-8 text-purple-600 mb-4" />
+              <h3 className="text-xl font-semibold font-poppins mb-2 text-gray-900">{feature.title}</h3>
+              <p className="text-gray-600 font-inter">{feature.description}</p>
             </motion.div>
           ))}
         </div>

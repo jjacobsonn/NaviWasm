@@ -11,7 +11,21 @@
   }
 }
 
+
 /* You can add custom styles here */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1A202C;
+}
+
+#root {
+  min-height: 100vh;
+}
 
 /* Basic global styles */
 body {
