@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 import os
 from app.core.config import get_settings
@@ -26,10 +26,16 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Favicon endpoint
+# Favicon endpoint with error handling
 @app.get("/favicon.ico")
 async def favicon():
-    return FileResponse(os.path.join(static_dir, "favicon.ico"))
+    favicon_path = os.path.join(static_dir, "favicon.ico")
+    if not os.path.exists(favicon_path):
+        return JSONResponse(
+            status_code=204,  # No Content
+            content={}
+        )
+    return FileResponse(favicon_path)
 
 # Documentation endpoint
 @app.get("/docs")
