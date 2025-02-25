@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Disclosure } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
-const Navigation: React.FC = () => {
+const Navigation = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -12,11 +13,11 @@ const Navigation: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navigation = [
-    { id: 'hero', label: 'Home' },
-    { id: 'map', label: 'Live Map' },
-    { id: 'features', label: 'Features' },
-    { id: 'contact', label: 'Contact' },
+  const navItems = [
+    { name: 'Overview', href: '#overview' },
+    { name: 'Live Map', href: '#map' },
+    { name: 'Features', href: '#features' },
+    { name: 'Contact', href: '#contact' },
   ];
 
   return (
@@ -31,29 +32,26 @@ const Navigation: React.FC = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <motion.div
           whileHover={{ scale: 1.05 }}
-          className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent font-poppins"
+          className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent"
         >
           NaviWasm
         </motion.div>
 
         <div className="hidden md:block">
           <div className="flex items-center space-x-8">
-            {navigation.map(({ id, label }) => (
-              <motion.button
-                key={id}
-                onClick={() => {
-                  const element = document.getElementById(id);
-                  if (element) element.scrollIntoView({ behavior: 'smooth' });
-                }}
+            {navItems.map((item) => (
+              <motion.a
+                key={item.name}
+                href={item.href}
                 whileHover={{ scale: 1.05, color: '#9333EA' }}
-                className="text-gray-300 hover:text-purple-500 transition-colors duration-200 text-lg font-medium font-inter"
+                className="text-gray-300 hover:text-purple-500 transition-colors duration-200 text-lg font-medium"
               >
-                {label}
-              </motion.button>
+                {item.name}
+              </motion.a>
             ))}
             <motion.button
               whileHover={{ scale: 1.05 }}
-              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200 text-lg font-medium font-inter"
+              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200 text-lg font-medium"
             >
               Get Started
             </motion.button>
@@ -63,32 +61,29 @@ const Navigation: React.FC = () => {
         <Disclosure as="div" className="md:hidden">
           <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none">
             <span className="sr-only">Open main menu</span>
-            {isScrolled ? (
-              <XMarkIcon className="h-6 w-6 text-white" />
+            {isOpen ? (
+              <XMarkIcon className="h-6 w-6" />
             ) : (
-              <Bars3Icon className="h-6 w-6 text-gray-400" />
+              <Bars3Icon className="h-6 w-6" />
             )}
           </Disclosure.Button>
-          <Disclosure.Panel className="absolute top-16 left-0 w-full bg-gray-900/95 backdrop-blur-lg p-4 shadow-lg">
+          <Disclosure.Panel className="absolute top-16 left-0 w-full bg-gray-900/95 backdrop-blur-lg p-4">
             <div className="flex flex-col space-y-4">
-              {navigation.map(({ id, label }) => (
+              {navItems.map((item) => (
                 <Disclosure.Button
-                  key={id}
-                  as="button"
-                  onClick={() => {
-                    const element = document.getElementById(id);
-                    if (element) element.scrollIntoView({ behavior: 'smooth' });
-                    setIsScrolled(false);
-                  }}
-                  className="block px-4 py-2 rounded-lg text-lg font-medium text-gray-300 hover:text-purple-500 hover:bg-gray-700 transition-colors duration-200 font-inter"
+                  as="a"
+                  key={item.name}
+                  href={item.href}
+                  className="block px-3 py-2 rounded-md text-lg font-medium text-gray-300 hover:text-purple-500 hover:bg-gray-700 transition-colors duration-200"
+                  onClick={() => setIsOpen(false)}
                 >
-                  {label}
+                  {item.name}
                 </Disclosure.Button>
               ))}
               <Disclosure.Button
                 as="button"
-                onClick={() => setIsScrolled(false)}
-                className="w-full px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200 text-lg font-medium font-inter"
+                className="w-full px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200 text-lg font-medium"
+                onClick={() => setIsOpen(false)}
               >
                 Get Started
               </Disclosure.Button>
