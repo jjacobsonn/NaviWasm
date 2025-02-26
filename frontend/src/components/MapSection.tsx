@@ -1,25 +1,135 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { motion } from 'framer-motion';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN || '';
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
 
 const MapSection: React.FC = () => {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [markers, setMarkers] = useState<mapboxgl.Marker[]>([]);
+  const [route, setRoute] = useState<any>(null);
 
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainer.current) return;
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-74.006, 40.7128],
-      zoom: 12,
+      center: [-74.5, 40],
+      zoom: 9
     });
 
-    return () => map.remove();
+    map.current.addControl(new mapboxgl.NavigationControl());
+
+    // Add click handler for map
+    map.current.on('click', handleMapClick);
+
+    return () => {
+      map.current?.remove();
+      clearMarkers();
+    };
   }, []);
+
+  const clearMarkers = () => {
+    markers.forEach(marker => marker.remove());
+    setMarkers([]);
+    if (route) {
+      map.current?.removeLayer('route');
+      map.current?.removeSource('route');
+      setRoute(null);
+    }
+  };
+
+  const handleMapClick = async (e: mapboxgl.MapMouseEvent) => {
+    if (!map.current) return;
+
+    const coordinates: Coordinates = {
+      lat: e.lngLat.lat,
+      lng: e.lngLat.lng
+    };
+
+    const marker = new mapboxgl.Marker({
+      color: markers.length === 0 ? '#00ff00' : '#ff0000'
+    })
+      .setLngLat([coordinates.lng, coordinates.lat])
+      .addTo(map.current);
+
+    const newMarkers = [...markers, marker];
+    setMarkers(newMarkers);
+
+    if (newMarkers.length === 2) {
+      // Calculate route
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/navigation/route', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            start: {
+              lat: newMarkers[0].getLngLat().lat,
+              lng: newMarkers[0].getLngLat().lng
+            },
+            end: {
+              lat: newMarkers[1].getLngLat().lat,
+              lng: newMarkers[1].getLngLat().lng
+            }
+          }),
+        });
+
+        const data = await response.json();
+        drawRoute(data.path);
+      } catch (error) {
+        console.error('Error calculating route:', error);
+      }
+    }
+
+    if (newMarkers.length > 2) {
+      clearMarkers();
+    }
+  };
+
+  const drawRoute = (path: Coordinates[]) => {
+    if (!map.current) return;
+
+    if (route) {
+      map.current.removeLayer('route');
+      map.current.removeSource('route');
+    }
+
+    map.current.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: path.map(point => [point.lng, point.lat])
+        }
+      }
+    });
+
+    map.current.addLayer({
+      id: 'route',
+      type: 'line',
+      source: 'route',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#888',
+        'line-width': 8
+      }
+    });
+
+    setRoute('route');
+  };
 
   return (
     <motion.section
@@ -41,15 +151,14 @@ const MapSection: React.FC = () => {
             Interactive Live Map
           </motion.h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto font-inter">
-            Navigate in real-time with our advanced WebAssembly-powered mapping system, built for precision and performance.
+            Click to set start and end points. The route will be calculated automatically.
           </p>
         </div>
-
         <motion.div
           whileHover={{ scale: 1.02 }}
-          className="rounded-2xl overflow-hidden shadow-xl border border-gray-200"
+          className="rounded-2xl overflow-hidden shadow-xl border border-gray-200 h-[600px]"
         >
-          <div ref={mapContainerRef} className="h-[600px] w-full" />
+          <div ref={mapContainer} className="w-full h-full" />
         </motion.div>
       </div>
     </motion.section>
