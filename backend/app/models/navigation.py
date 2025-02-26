@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Tuple
+from typing import List
 
 class Coordinates(BaseModel):
     lat: float
@@ -11,5 +11,4 @@ class RouteRequest(BaseModel):
 
 class RouteResponse(BaseModel):
     path: List[Coordinates]
-    distance: float
-    duration: float 
+    calculation_time_ms: float 

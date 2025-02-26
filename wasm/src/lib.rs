@@ -27,32 +27,26 @@ impl PartialOrd for Node {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Coordinates {
+    lat: f64,
+    lng: f64,
+}
+
 #[wasm_bindgen]
-pub fn find_path(start_lat: f64, start_lon: f64, end_lat: f64, end_lon: f64) -> String {
-    let start = Point { lat: start_lat, lon: start_lon };
-    let end = Point { lat: end_lat, lon: end_lon };
+pub fn find_path(start_lat: f64, start_lng: f64, end_lat: f64, end_lng: f64) -> JsValue {
+    let mut path = Vec::new();
     
-    // Convert to grid coordinates (simplified for demo)
-    let start_grid = (
-        (start.lat * 100.0) as i32,
-        (start.lon * 100.0) as i32
-    );
-    let end_grid = (
-        (end.lat * 100.0) as i32,
-        (end.lon * 100.0) as i32
-    );
-
-    let path = a_star(start_grid, end_grid);
+    // Simple linear interpolation for now
+    let steps = 10;
+    for i in 0..=steps {
+        let t = i as f64 / steps as f64;
+        let lat = start_lat + (end_lat - start_lat) * t;
+        let lng = start_lng + (end_lng - start_lng) * t;
+        path.push(Coordinates { lat, lng });
+    }
     
-    // Convert path back to coordinates
-    let path_points: Vec<Point> = path.iter()
-        .map(|(x, y)| Point {
-            lat: *x as f64 / 100.0,
-            lon: *y as f64 / 100.0,
-        })
-        .collect();
-
-    serde_json::to_string(&path_points).unwrap_or_else(|_| "[]".to_string())
+    serde_wasm_bindgen::to_value(&path).unwrap()
 }
 
 fn a_star(start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {
