@@ -8,6 +8,10 @@ interface Coordinates {
   lng: number;
 }
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+console.log('API Base URL:', API_BASE_URL);
+
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -24,27 +28,42 @@ const MapSection: React.FC = () => {
   const animationFrame = useRef<number>();
 
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || !mapboxgl.accessToken) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-74.5, 40],
-      zoom: 9
-    });
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-74.5, 40],
+        zoom: 9,
+        attributionControl: true // Enable attribution control
+      });
 
-    map.current.addControl(
-      new mapboxgl.NavigationControl(),
-      'top-left'
-    );
+      // Add error handling
+      map.current.on('error', (e) => {
+        console.error('Mapbox error:', e);
+        setError('Failed to load map properly');
+      });
 
-    map.current.on('click', handleMapClick);
+      map.current.addControl(
+        new mapboxgl.NavigationControl(),
+        'top-left'
+      );
 
-    return () => {
-      cancelAnimationFrame(animationFrame.current!);
-      map.current?.remove();
-      clearMarkers();
-    };
+      // Wait for map to load before adding click handler
+      map.current.on('load', () => {
+        map.current?.on('click', handleMapClick);
+      });
+
+      return () => {
+        cancelAnimationFrame(animationFrame.current!);
+        map.current?.remove();
+        clearMarkers();
+      };
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError('Failed to initialize map');
+    }
   }, []);
 
   const clearMarkers = () => {
@@ -72,11 +91,18 @@ const MapSection: React.FC = () => {
   const handleMapClick = async (e: mapboxgl.MapMouseEvent) => {
     if (!map.current) return;
     setError(null);
+    console.log('Map clicked:', e.lngLat);
 
     const coordinates: Coordinates = {
       lat: e.lngLat.lat,
       lng: e.lngLat.lng
     };
+
+    // Only add marker if we have less than 2 markers
+    if (markers.length >= 2) {
+      clearMarkers();
+      return;
+    }
 
     const marker = new mapboxgl.Marker({
       color: markers.length === 0 ? '#00ff00' : '#ff0000'
@@ -89,31 +115,41 @@ const MapSection: React.FC = () => {
 
     if (newMarkers.length === 2) {
       setIsLoading(true);
-      const startTime = performance.now();
+      const requestData = {
+        start: {
+          lat: newMarkers[0].getLngLat().lat,
+          lng: newMarkers[0].getLngLat().lng
+        },
+        end: {
+          lat: newMarkers[1].getLngLat().lat,
+          lng: newMarkers[1].getLngLat().lng
+        }
+      };
       
+      console.log('Sending route request:', requestData);
+
       try {
-        const response = await fetch('http://localhost:8000/api/v1/navigation/route', {
+        const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            start: {
-              lat: newMarkers[0].getLngLat().lat,
-              lng: newMarkers[0].getLngLat().lng
-            },
-            end: {
-              lat: newMarkers[1].getLngLat().lat,
-              lng: newMarkers[1].getLngLat().lng
-            }
-          }),
+          body: JSON.stringify(requestData),
         });
 
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('Route data received:', data);
+
         if (!response.ok) {
-          throw new Error('Failed to calculate route');
+          throw new Error(`Failed to calculate route: ${response.statusText}`);
+        }
+        
+        if (!data.path || !Array.isArray(data.path)) {
+          console.error('Invalid route data:', data);
+          throw new Error('Invalid route data received');
         }
 
-        const data = await response.json();
         setCalcTime(performance.now() - startTime);
         drawRoute(data.path);
         startMovingMarker(data.path);
@@ -124,10 +160,6 @@ const MapSection: React.FC = () => {
       } finally {
         setIsLoading(false);
       }
-    }
-
-    if (newMarkers.length > 2) {
-      clearMarkers();
     }
   };
 

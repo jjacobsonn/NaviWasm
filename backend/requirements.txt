@@ -9,3 +9,5 @@ pytest-asyncio==0.21.1
 python-jose==3.3.0
 passlib==1.7.4
 bcrypt==4.0.1
+wasmer==1.1.0
+wasmer-compiler-cranelift==1.1.0
