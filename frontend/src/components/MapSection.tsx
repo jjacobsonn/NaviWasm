@@ -33,7 +33,11 @@ const MapSection: React.FC = () => {
       zoom: 9
     });
 
-    map.current.addControl(new mapboxgl.NavigationControl());
+    map.current.addControl(
+      new mapboxgl.NavigationControl(),
+      'top-left'
+    );
+
     map.current.on('click', handleMapClick);
 
     return () => {
@@ -48,11 +52,17 @@ const MapSection: React.FC = () => {
     movingMarker.current?.remove();
     movingMarker.current = null;
     setMarkers([]);
-    if (route) {
-      map.current?.removeLayer('route');
-      map.current?.removeSource('route');
+
+    if (map.current && route) {
+      if (map.current.getLayer('route')) {
+        map.current.removeLayer('route');
+      }
+      if (map.current.getSource('route')) {
+        map.current.removeSource('route');
+      }
       setRoute(null);
     }
+
     setCurrentPositionIndex(-1);
     setCalcTime(null);
     setError(null);
@@ -152,10 +162,29 @@ const MapSection: React.FC = () => {
         'line-cap': 'round'
       },
       paint: {
-        'line-color': '#888',
-        'line-width': 8
+        'line-color': '#4a90e2',
+        'line-width': 6,
+        'line-opacity': 0.8
       }
     });
+
+    const coordinates: [number, number][] = pathData.map(point => [point.lng, point.lat]);
+    
+    if (coordinates.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds(
+        coordinates[0],
+        coordinates[0]
+      );
+
+      coordinates.forEach(coord => {
+        bounds.extend(coord);
+      });
+
+      map.current.fitBounds(bounds, {
+        padding: 50,
+        duration: 1000
+      });
+    }
 
     setRoute('route');
   };
@@ -163,15 +192,17 @@ const MapSection: React.FC = () => {
   const startMovingMarker = (pathData: Coordinates[]) => {
     if (!map.current) return;
     
-    if (!movingMarker.current) {
-      movingMarker.current = new mapboxgl.Marker({
-        color: '#0000ff',
-        scale: 0.8
-      });
+    if (movingMarker.current) {
+      movingMarker.current.remove();
     }
+    
+    movingMarker.current = new mapboxgl.Marker({
+      color: '#0000ff',
+      scale: 0.8
+    });
 
     let start: number;
-    const duration = 5000; // 5 seconds to traverse the path
+    const duration = 3000;
 
     function animate(timestamp: number) {
       if (start === undefined) {
@@ -181,12 +212,10 @@ const MapSection: React.FC = () => {
       const elapsed = timestamp - start;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Calculate current position along the path
       const index = Math.floor(progress * (pathData.length - 1));
       const nextIndex = Math.min(index + 1, pathData.length - 1);
       const pathProgress = (progress * (pathData.length - 1)) % 1;
 
-      // Interpolate between points
       const currentPos = {
         lng: pathData[index].lng + (pathData[nextIndex].lng - pathData[index].lng) * pathProgress,
         lat: pathData[index].lat + (pathData[nextIndex].lat - pathData[index].lat) * pathProgress
