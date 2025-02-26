@@ -3,15 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Update CSP to include Google Fonts -->
+    <!-- Update CSP and add passive event handling -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.mapbox.com https://events.mapbox.com data: blob:;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.mapbox.com;
       font-src 'self' https://fonts.gstatic.com;
       img-src 'self' https://*.mapbox.com data: blob:;
+      connect-src 'self' https://api.mapbox.com https://events.mapbox.com http://localhost:8000;
     ">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <title>Frontend App</title>
+    <script>
+      // Add passive event handling
+      window.addEventListener('load', function() {
+        if (typeof window.orientation !== 'undefined') {
+          document.addEventListener('touchstart', function(){}, {passive: true});
+          document.addEventListener('touchmove', function(){}, {passive: true});
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

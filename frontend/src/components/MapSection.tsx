@@ -16,6 +16,7 @@ interface RouteData {
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
 console.log('API Base URL:', API_BASE_URL);
+console.log('Mapbox token:', process.env.REACT_APP_MAPBOX_ACCESS_TOKEN?.substring(0, 10) + '...');
 
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -31,84 +32,104 @@ const MapSection: React.FC = () => {
   const path = useRef<Coordinates[]>([]);
   const animationFrame = useRef<number>();
 
-  const clearMarkers = useCallback(() => {
-    markers.forEach(marker => marker.remove());
-    movingMarker.current?.remove();
-    movingMarker.current = null;
-    setMarkers([]);
-
-    if (map.current && route) {
-      if (map.current.getLayer('route')) {
-        map.current.removeLayer('route');
-      }
-      if (map.current.getSource('route')) {
-        map.current.removeSource('route');
-      }
-      setRoute(null);
-    }
-
-    setCalcTime(null);
-    setError(null);
-    path.current = [];
-  }, [markers, route]);
-
-  const drawRoute = useCallback((pathData: Coordinates[]) => {
+  const clearRoute = useCallback(() => {
     if (!map.current) return;
 
-    if (route) {
-      map.current.removeLayer('route');
-      map.current.removeSource('route');
-    }
-
-    path.current = pathData;
-
-    map.current.addSource('route', {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: pathData.map(point => [point.lng, point.lat])
+    try {
+      // Only try to remove if map is loaded
+      if (map.current.loaded()) {
+        if (map.current.getLayer('route')) {
+          map.current.removeLayer('route');
+        }
+        if (map.current.getSource('route')) {
+          map.current.removeSource('route');
         }
       }
-    });
-
-    map.current.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      layout: {
-        'line-join': 'round',
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#4a90e2',
-        'line-width': 6,
-        'line-opacity': 0.8
-      }
-    });
-
-    const coordinates: [number, number][] = pathData.map(point => [point.lng, point.lat]);
-    
-    if (coordinates.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds(
-        coordinates[0],
-        coordinates[0]
-      );
-
-      coordinates.forEach(coord => {
-        bounds.extend(coord);
-      });
-
-      map.current.fitBounds(bounds, {
-        padding: 50,
-        duration: 1000
-      });
+      setRoute(null);
+    } catch (err) {
+      console.error('Error clearing route:', err);
     }
+  }, []);
 
-    setRoute('route');
-  }, [route]);
+  const clearMarkers = useCallback(() => {
+    try {
+      // Clear markers
+      markers.forEach(marker => {
+        if (marker) marker.remove();
+      });
+      if (movingMarker.current) {
+        movingMarker.current.remove();
+        movingMarker.current = null;
+      }
+      setMarkers([]);
+
+      // Clear route
+      clearRoute();
+      
+      // Reset other state
+      setCalcTime(null);
+      setError(null);
+      path.current = [];
+    } catch (err) {
+      console.error('Error clearing markers:', err);
+    }
+  }, [markers, clearRoute]);
+
+  const drawRoute = useCallback((pathData: Coordinates[]) => {
+    if (!map.current || !map.current.loaded()) return;
+
+    try {
+      clearRoute();
+
+      path.current = pathData;
+
+      // Add new route
+      map.current.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: pathData.map(point => [point.lng, point.lat])
+          }
+        }
+      });
+
+      map.current.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#4a90e2',
+          'line-width': 6,
+          'line-opacity': 0.8
+        }
+      });
+
+      // Fit bounds
+      const coordinates = pathData.map(point => [point.lng, point.lat] as [number, number]);
+      if (coordinates.length > 0) {
+        const bounds = coordinates.reduce(
+          (bounds, coord) => bounds.extend(coord),
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+        );
+
+        map.current.fitBounds(bounds, {
+          padding: 50,
+          duration: 1000
+        });
+      }
+
+      setRoute('route');
+    } catch (err) {
+      console.error('Error drawing route:', err);
+    }
+  }, [clearRoute]);
 
   const startMovingMarker = useCallback((pathData: Coordinates[]) => {
     if (!map.current) return;
@@ -157,9 +178,13 @@ const MapSection: React.FC = () => {
   }, []);
 
   const handleMapClick = useCallback(async (e: mapboxgl.MapMouseEvent) => {
-    if (!map.current) return;
+    console.log('handleMapClick called', e.lngLat);
+    if (!map.current) {
+      console.log('Map not initialized');
+      return;
+    }
+
     setError(null);
-    console.log('Map clicked:', e.lngLat);
 
     const coordinates: Coordinates = {
       lat: e.lngLat.lat,
@@ -167,10 +192,12 @@ const MapSection: React.FC = () => {
     };
 
     if (markers.length >= 2) {
+      console.log('Clearing existing markers');
       clearMarkers();
       return;
     }
 
+    console.log('Adding marker:', coordinates);
     const marker = new mapboxgl.Marker({
       color: markers.length === 0 ? '#00ff00' : '#ff0000'
     })
@@ -233,46 +260,89 @@ const MapSection: React.FC = () => {
   useEffect(() => {
     if (!mapContainer.current || !mapboxgl.accessToken) return;
 
+    let mapInstance: mapboxgl.Map | null = null;
+    let isMapLoaded = false;
+
     try {
-      map.current = new mapboxgl.Map({
+      mapInstance = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/dark-v11',
         center: [-74.5, 40],
         zoom: 9,
         attributionControl: true,
         interactive: true,
-        touchZoomRotate: true,
         dragPan: true,
         dragRotate: true,
-        scrollZoom: true
+        touchZoomRotate: true,
+        scrollZoom: true,
+        minZoom: 2,
+        maxZoom: 20,
+        boxZoom: true,
+        doubleClickZoom: true
       });
 
-      map.current.on('error', (e) => {
+      map.current = mapInstance;
+
+      // Add error handling
+      mapInstance.on('error', (e) => {
         console.error('Mapbox error:', e);
         setError('Failed to load map properly');
       });
 
-      map.current.addControl(
+      // Add navigation control
+      mapInstance.addControl(
         new mapboxgl.NavigationControl(),
         'top-left'
       );
 
-      map.current.on('load', () => {
-        map.current?.on('click', handleMapClick);
+      // Wait for both map and style to be loaded
+      mapInstance.on('style.load', () => {
+        console.log('Map style loaded');
+        isMapLoaded = true;
+      });
+
+      mapInstance.on('load', () => {
+        console.log('Map loaded');
+        if (!mapInstance) return;
+
+        // Add click handler directly to the map
+        mapInstance.on('click', (e) => {
+          console.log('Map clicked at:', e.lngLat);
+          handleMapClick(e);
+        });
       });
 
       return () => {
+        // Cleanup
         if (animationFrame.current) {
           cancelAnimationFrame(animationFrame.current);
         }
-        map.current?.remove();
-        clearMarkers();
+
+        // Only try to remove markers and layers if map was loaded
+        if (isMapLoaded && mapInstance) {
+          try {
+            clearMarkers();
+          } catch (err) {
+            console.error('Error clearing markers during cleanup:', err);
+          }
+        }
+
+        // Remove map instance
+        if (mapInstance) {
+          try {
+            mapInstance.remove();
+          } catch (err) {
+            console.error('Error removing map during cleanup:', err);
+          }
+        }
+        
+        map.current = null;
       };
     } catch (err) {
       console.error('Error initializing map:', err);
       setError('Failed to initialize map');
     }
-  }, [handleMapClick, clearMarkers]);
+  }, []);
 
   return (
     <motion.section
