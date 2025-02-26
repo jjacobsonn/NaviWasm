@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { motion } from 'framer-motion';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -6,6 +6,11 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 interface Coordinates {
   lat: number;
   lng: number;
+}
+
+interface RouteData {
+  path: Coordinates[];
+  calculation_time_ms: number;
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
@@ -16,57 +21,17 @@ const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [markers, setMarkers] = useState<mapboxgl.Marker[]>([]);
-  const [route, setRoute] = useState<any>(null);
+  const [route, setRoute] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [calcTime, setCalcTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // For real-time movement
-  const [currentPositionIndex, setCurrentPositionIndex] = useState<number>(-1);
   const movingMarker = useRef<mapboxgl.Marker | null>(null);
   const path = useRef<Coordinates[]>([]);
   const animationFrame = useRef<number>();
 
-  useEffect(() => {
-    if (!mapContainer.current || !mapboxgl.accessToken) return;
-
-    try {
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-74.5, 40],
-        zoom: 9,
-        attributionControl: true // Enable attribution control
-      });
-
-      // Add error handling
-      map.current.on('error', (e) => {
-        console.error('Mapbox error:', e);
-        setError('Failed to load map properly');
-      });
-
-      map.current.addControl(
-        new mapboxgl.NavigationControl(),
-        'top-left'
-      );
-
-      // Wait for map to load before adding click handler
-      map.current.on('load', () => {
-        map.current?.on('click', handleMapClick);
-      });
-
-      return () => {
-        cancelAnimationFrame(animationFrame.current!);
-        map.current?.remove();
-        clearMarkers();
-      };
-    } catch (err) {
-      console.error('Error initializing map:', err);
-      setError('Failed to initialize map');
-    }
-  }, []);
-
-  const clearMarkers = () => {
+  const clearMarkers = useCallback(() => {
     markers.forEach(marker => marker.remove());
     movingMarker.current?.remove();
     movingMarker.current = null;
@@ -82,88 +47,12 @@ const MapSection: React.FC = () => {
       setRoute(null);
     }
 
-    setCurrentPositionIndex(-1);
     setCalcTime(null);
     setError(null);
     path.current = [];
-  };
+  }, [markers, route]);
 
-  const handleMapClick = async (e: mapboxgl.MapMouseEvent) => {
-    if (!map.current) return;
-    setError(null);
-    console.log('Map clicked:', e.lngLat);
-
-    const coordinates: Coordinates = {
-      lat: e.lngLat.lat,
-      lng: e.lngLat.lng
-    };
-
-    // Only add marker if we have less than 2 markers
-    if (markers.length >= 2) {
-      clearMarkers();
-      return;
-    }
-
-    const marker = new mapboxgl.Marker({
-      color: markers.length === 0 ? '#00ff00' : '#ff0000'
-    })
-      .setLngLat([coordinates.lng, coordinates.lat])
-      .addTo(map.current);
-
-    const newMarkers = [...markers, marker];
-    setMarkers(newMarkers);
-
-    if (newMarkers.length === 2) {
-      setIsLoading(true);
-      const requestData = {
-        start: {
-          lat: newMarkers[0].getLngLat().lat,
-          lng: newMarkers[0].getLngLat().lng
-        },
-        end: {
-          lat: newMarkers[1].getLngLat().lat,
-          lng: newMarkers[1].getLngLat().lng
-        }
-      };
-      
-      console.log('Sending route request:', requestData);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-
-        console.log('Response status:', response.status);
-        const data = await response.json();
-        console.log('Route data received:', data);
-
-        if (!response.ok) {
-          throw new Error(`Failed to calculate route: ${response.statusText}`);
-        }
-        
-        if (!data.path || !Array.isArray(data.path)) {
-          console.error('Invalid route data:', data);
-          throw new Error('Invalid route data received');
-        }
-
-        setCalcTime(performance.now() - startTime);
-        drawRoute(data.path);
-        startMovingMarker(data.path);
-      } catch (error) {
-        console.error('Error calculating route:', error);
-        setError(error instanceof Error ? error.message : 'Failed to calculate route');
-        clearMarkers();
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const drawRoute = (pathData: Coordinates[]) => {
+  const drawRoute = useCallback((pathData: Coordinates[]) => {
     if (!map.current) return;
 
     if (route) {
@@ -219,9 +108,9 @@ const MapSection: React.FC = () => {
     }
 
     setRoute('route');
-  };
+  }, [route]);
 
-  const startMovingMarker = (pathData: Coordinates[]) => {
+  const startMovingMarker = useCallback((pathData: Coordinates[]) => {
     if (!map.current) return;
     
     if (movingMarker.current) {
@@ -253,9 +142,11 @@ const MapSection: React.FC = () => {
         lat: pathData[index].lat + (pathData[nextIndex].lat - pathData[index].lat) * pathProgress
       };
 
-      movingMarker.current!
-        .setLngLat([currentPos.lng, currentPos.lat])
-        .addTo(map.current!);
+      if (movingMarker.current && map.current) {
+        movingMarker.current
+          .setLngLat([currentPos.lng, currentPos.lat])
+          .addTo(map.current);
+      }
 
       if (progress < 1) {
         animationFrame.current = requestAnimationFrame(animate);
@@ -263,7 +154,125 @@ const MapSection: React.FC = () => {
     }
 
     animationFrame.current = requestAnimationFrame(animate);
-  };
+  }, []);
+
+  const handleMapClick = useCallback(async (e: mapboxgl.MapMouseEvent) => {
+    if (!map.current) return;
+    setError(null);
+    console.log('Map clicked:', e.lngLat);
+
+    const coordinates: Coordinates = {
+      lat: e.lngLat.lat,
+      lng: e.lngLat.lng
+    };
+
+    if (markers.length >= 2) {
+      clearMarkers();
+      return;
+    }
+
+    const marker = new mapboxgl.Marker({
+      color: markers.length === 0 ? '#00ff00' : '#ff0000'
+    })
+      .setLngLat([coordinates.lng, coordinates.lat])
+      .addTo(map.current);
+
+    const newMarkers = [...markers, marker];
+    setMarkers(newMarkers);
+
+    if (newMarkers.length === 2) {
+      setIsLoading(true);
+      const requestData = {
+        start: {
+          lat: newMarkers[0].getLngLat().lat,
+          lng: newMarkers[0].getLngLat().lng
+        },
+        end: {
+          lat: newMarkers[1].getLngLat().lat,
+          lng: newMarkers[1].getLngLat().lng
+        }
+      };
+      
+      console.log('Sending route request:', requestData);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+        });
+
+        console.log('Response status:', response.status);
+        const data = await response.json() as RouteData;
+        console.log('Route data received:', data);
+
+        if (!response.ok) {
+          throw new Error(`Failed to calculate route: ${response.statusText}`);
+        }
+        
+        if (!data.path || !Array.isArray(data.path)) {
+          console.error('Invalid route data:', data);
+          throw new Error('Invalid route data received');
+        }
+
+        setCalcTime(data.calculation_time_ms);
+        drawRoute(data.path);
+        startMovingMarker(data.path);
+      } catch (error) {
+        console.error('Error calculating route:', error);
+        setError(error instanceof Error ? error.message : 'Failed to calculate route');
+        clearMarkers();
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [markers, clearMarkers, drawRoute, startMovingMarker]);
+
+  useEffect(() => {
+    if (!mapContainer.current || !mapboxgl.accessToken) return;
+
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-74.5, 40],
+        zoom: 9,
+        attributionControl: true,
+        interactive: true,
+        touchZoomRotate: true,
+        dragPan: true,
+        dragRotate: true,
+        scrollZoom: true
+      });
+
+      map.current.on('error', (e) => {
+        console.error('Mapbox error:', e);
+        setError('Failed to load map properly');
+      });
+
+      map.current.addControl(
+        new mapboxgl.NavigationControl(),
+        'top-left'
+      );
+
+      map.current.on('load', () => {
+        map.current?.on('click', handleMapClick);
+      });
+
+      return () => {
+        if (animationFrame.current) {
+          cancelAnimationFrame(animationFrame.current);
+        }
+        map.current?.remove();
+        clearMarkers();
+      };
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError('Failed to initialize map');
+    }
+  }, [handleMapClick, clearMarkers]);
 
   return (
     <motion.section
