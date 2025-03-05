@@ -35,11 +35,11 @@ pub struct Coordinates {
 }
 
 #[wasm_bindgen]
-pub fn find_path(start_lat: f64, start_lng: f64, end_lat: f64, end_lng: f64) -> Result<JsValue, JsError> {
+pub fn find_path(start_lat: f64, start_lng: f64, end_lat: f64, end_lng: f64) -> JsValue {
     let mut path = Vec::new();
     
-    // For now, create a more detailed path with more points
-    let steps = 50; // Increase number of points for smoother animation
+    // Simple linear interpolation for now
+    let steps = 10;
     for i in 0..=steps {
         let t = i as f64 / steps as f64;
         let lat = start_lat + (end_lat - start_lat) * t;
@@ -47,9 +47,7 @@ pub fn find_path(start_lat: f64, start_lng: f64, end_lat: f64, end_lng: f64) -> 
         path.push(Coordinates { lat, lng });
     }
     
-    // Convert to JsValue with proper error handling
-    serde_wasm_bindgen::to_value(&path)
-        .map_err(|e| JsError::new(&format!("Serialization error: {}", e)))
+    serde_wasm_bindgen::to_value(&path).unwrap()
 }
 
 fn a_star(start: (i32, i32), goal: (i32, i32)) -> Vec<(i32, i32)> {

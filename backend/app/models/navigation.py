@@ -11,4 +11,4 @@ class RouteRequest(BaseModel):
 
 class RouteResponse(BaseModel):
     path: List[Coordinates]
-    calculation_time_ms: float 
+    calculation_time_ms: float

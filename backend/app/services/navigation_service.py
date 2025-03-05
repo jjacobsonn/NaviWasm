@@ -51,29 +51,19 @@ class NavigationService:
     ) -> RouteResponse:
         start_time = time.perf_counter()
         
-        try:
-            if self.use_wasm:
-                result = self.instance.exports.find_path(
-                    float(start.lat), float(start.lng),
-                    float(end.lat), float(end.lng)
-                )
-                
-                if not result:
-                    raise Exception("WASM function returned None")
-                
-                path = [
-                    Coordinates(lat=float(point['lat']), lng=float(point['lng']))
-                    for point in result
-                ]
-            else:
-                path = self._calculate_path_python(start, end)
-            
-            calculation_time = (time.perf_counter() - start_time) * 1000
-            
-            return RouteResponse(
-                path=path,
-                calculation_time_ms=calculation_time
-            )
-        except Exception as e:
-            print(f"Error in calculate_route: {str(e)}")
-            raise Exception(f"Failed to calculate route: {str(e)}") 
+        # Simple linear interpolation for testing
+        steps = 10
+        path: List[Coordinates] = []
+        
+        for i in range(steps + 1):
+            t = i / steps
+            lat = start.lat + (end.lat - start.lat) * t
+            lng = start.lng + (end.lng - start.lng) * t
+            path.append(Coordinates(lat=lat, lng=lng))
+        
+        calculation_time = (time.perf_counter() - start_time) * 1000
+        
+        return RouteResponse(
+            path=path,
+            calculation_time_ms=calculation_time
+        ) 

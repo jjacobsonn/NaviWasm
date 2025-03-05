@@ -13,14 +13,17 @@ interface RouteData {
   calculation_time_ms: number;
 }
 
-// Remove token logging for security
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
-if (!process.env.REACT_APP_MAPBOX_ACCESS_TOKEN) {
-  throw new Error('Mapbox token is missing');
+console.log('API Base URL:', API_BASE_URL);
+console.log('Mapbox token:', MAPBOX_TOKEN?.substring(0, 10) + '...');
+
+if (!MAPBOX_TOKEN) {
+  throw new Error('Mapbox token is required');
 }
 
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -33,7 +36,6 @@ const MapSection: React.FC = () => {
   const movingMarker = useRef<mapboxgl.Marker | null>(null);
   const animationFrame = useRef<number>();
 
-  // Memoize clearRoute to prevent recreation on every render
   const clearRoute = useCallback(() => {
     if (!map.current || !route) return;
 
@@ -50,7 +52,6 @@ const MapSection: React.FC = () => {
     }
   }, [route]);
 
-  // Memoize clearMarkers
   const clearMarkers = useCallback(() => {
     markers.forEach(marker => marker.remove());
     if (movingMarker.current) {
@@ -63,7 +64,6 @@ const MapSection: React.FC = () => {
     setError(null);
   }, [markers, clearRoute]);
 
-  // Memoize drawRoute
   const drawRoute = useCallback((pathData: Coordinates[]) => {
     if (!map.current || !pathData.length) return;
 
@@ -99,11 +99,7 @@ const MapSection: React.FC = () => {
 
       const bounds = new mapboxgl.LngLatBounds();
       pathData.forEach(point => bounds.extend([point.lng, point.lat]));
-      
-      map.current.fitBounds(bounds, {
-        padding: 50,
-        duration: 1000
-      });
+      map.current.fitBounds(bounds, { padding: 50 });
 
       setRoute('route');
     } catch (err) {
@@ -112,7 +108,6 @@ const MapSection: React.FC = () => {
     }
   }, [clearRoute]);
 
-  // Memoize handleMapClick
   const handleMapClick = useCallback(async (e: mapboxgl.MapMouseEvent) => {
     if (!map.current) return;
 
@@ -121,7 +116,8 @@ const MapSection: React.FC = () => {
       lng: e.lngLat.lng
     };
 
-    // Only allow up to 2 markers
+    console.log('Clicked coordinates:', coordinates);
+
     if (markers.length >= 2) {
       clearMarkers();
       return;
@@ -136,7 +132,6 @@ const MapSection: React.FC = () => {
     const newMarkers = [...markers, marker];
     setMarkers(newMarkers);
 
-    // Calculate route when we have 2 markers
     if (newMarkers.length === 2) {
       setIsLoading(true);
       setError(null);
@@ -176,33 +171,41 @@ const MapSection: React.FC = () => {
     }
   }, [markers, clearMarkers, drawRoute]);
 
-  // Initialize map only once
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-74.5, 40],
-      zoom: 9
-    });
+    console.log('Initializing map...');
+    try {
+      const mapInstance = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-98, 39],
+        zoom: 2,
+        attributionControl: true
+      });
 
-    const mapInstance = map.current;
-    mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-left');
-    
-    // Add click handler after map loads
-    mapInstance.once('load', () => {
-      mapInstance.on('click', handleMapClick);
-    });
+      map.current = mapInstance;
 
-    return () => {
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-      }
-      clearMarkers();
-      mapInstance?.remove();
-    };
-  }, []); // Empty dependency array since we only want to run this once
+      mapInstance.on('load', () => {
+        console.log('Map loaded successfully');
+        mapInstance.resize();
+        mapInstance.on('click', handleMapClick);
+      });
+
+      mapInstance.on('error', (e) => {
+        console.error('Map error:', e);
+        setError('Failed to load map');
+      });
+
+      return () => {
+        mapInstance.remove();
+        map.current = null;
+      };
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError('Failed to initialize map');
+    }
+  }, [handleMapClick]);
 
   return (
     <motion.section
@@ -236,23 +239,29 @@ const MapSection: React.FC = () => {
             </p>
           )}
         </div>
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="rounded-2xl overflow-hidden shadow-xl border border-gray-200 h-[600px] relative"
-        >
-          <div ref={mapContainer} className="w-full h-full" />
-          {isLoading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-            </div>
-          )}
-          <button
-            onClick={clearMarkers}
-            className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 px-4 py-2 rounded-lg shadow transition-all duration-300 z-10"
+        
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="rounded-2xl overflow-hidden shadow-xl border border-gray-200 h-[550px] relative"
           >
-            Reset
-          </button>
-        </motion.div>
+            <div 
+              ref={mapContainer} 
+              className="absolute inset-0 w-full h-full"
+            />
+            {isLoading && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              </div>
+            )}
+            <button
+              onClick={clearMarkers}
+              className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 px-4 py-2 rounded-lg shadow transition-all duration-300 z-10"
+            >
+              Reset
+            </button>
+          </motion.div>
+        </div>
       </div>
     </motion.section>
   );

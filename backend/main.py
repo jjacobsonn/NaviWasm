@@ -17,8 +17,9 @@ from app.core.errors import (
 settings = get_settings()
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    title="Navigation System API",
+    description="A real-time navigation system with Rust WASM pathfinding",
+    version="1.0.0"
 )
 
 # Mount static files directory
@@ -42,10 +43,10 @@ async def favicon():
 async def get_docs():
     return get_swagger_ui_html(openapi_url=f"{settings.API_V1_STR}/openapi.json", title=f"{settings.PROJECT_NAME} - API Documentation")
 
-# Set up CORS
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,7 +58,7 @@ async def root():
     return {"message": "Welcome to the Navigation System API"}
 
 # Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_router, prefix="/api/v1")
 
 # Add exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

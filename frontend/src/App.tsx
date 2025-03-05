@@ -7,15 +7,12 @@ import MapSection from './components/MapSection';
 import FeaturesSection from './components/FeaturesSection';
 import Footer from './components/Footer';
 
-// Set the token at the app level
-const token = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
-if (!token) {
+// Initialize Mapbox token
+const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
+if (!MAPBOX_TOKEN) {
   throw new Error('Mapbox token is required');
 }
-mapboxgl.accessToken = token;
-
-// Add this for debugging
-console.log('Mapbox Token:', token.substring(0, 10) + '...');
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const App: React.FC = () => {
   return (
