@@ -36,16 +36,39 @@ pub struct Coordinates {
 
 #[wasm_bindgen]
 pub fn find_path(start_lat: f64, start_lng: f64, end_lat: f64, end_lng: f64) -> JsValue {
-    let mut path = Vec::new();
+    // Set up console error panic hook for better debugging
+    console_error_panic_hook::set_once();
     
-    // Simple linear interpolation for now
-    let steps = 10;
-    for i in 0..=steps {
-        let t = i as f64 / steps as f64;
-        let lat = start_lat + (end_lat - start_lat) * t;
-        let lng = start_lng + (end_lng - start_lng) * t;
-        path.push(Coordinates { lat, lng });
-    }
+    // Convert to grid coordinates (simplified for example)
+    let start_x = (start_lng * 100.0) as i32;
+    let start_y = (start_lat * 100.0) as i32;
+    let end_x = (end_lng * 100.0) as i32;
+    let end_y = (end_lat * 100.0) as i32;
+    
+    // Run A* pathfinding
+    let grid_path = a_star((start_x, start_y), (end_x, end_y));
+    
+    // Convert back to geographic coordinates
+    let geo_path: Vec<Coordinates> = grid_path.into_iter()
+        .map(|(x, y)| Coordinates {
+            lat: y as f64 / 100.0,
+            lng: x as f64 / 100.0,
+        })
+        .collect();
+    
+    // If no path found, fall back to interpolation
+    let path = if geo_path.is_empty() {
+        // Simple linear interpolation as fallback
+        let steps = 10;
+        (0..=steps).map(|i| {
+            let t = i as f64 / steps as f64;
+            let lat = start_lat + (end_lat - start_lat) * t;
+            let lng = start_lng + (end_lng - start_lng) * t;
+            Coordinates { lat, lng }
+        }).collect()
+    } else {
+        geo_path
+    };
     
     serde_wasm_bindgen::to_value(&path).unwrap()
 }

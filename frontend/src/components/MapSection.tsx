@@ -28,60 +28,140 @@ mapboxgl.accessToken = MAPBOX_TOKEN;
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [markers, setMarkers] = useState<mapboxgl.Marker[]>([]);
-  const [route, setRoute] = useState<string | null>(null);
+  const startMarker = useRef<mapboxgl.Marker | null>(null);
+  const endMarker = useRef<mapboxgl.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [calcTime, setCalcTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const movingMarker = useRef<mapboxgl.Marker | null>(null);
-  const animationFrame = useRef<number>();
+  const [mode, setMode] = useState<'idle' | 'start' | 'end'>('idle');
 
+  // Clear route
   const clearRoute = useCallback(() => {
-    if (!map.current || !route) return;
-
+    if (!map.current) return;
+    
     try {
       if (map.current.getLayer('route')) {
         map.current.removeLayer('route');
       }
+      if (map.current.getLayer('route-outline')) {
+        map.current.removeLayer('route-outline');
+      }
       if (map.current.getSource('route')) {
         map.current.removeSource('route');
       }
-      setRoute(null);
     } catch (err) {
       console.error('Error clearing route:', err);
     }
-  }, [route]);
+  }, []);
 
-  const clearMarkers = useCallback(() => {
-    markers.forEach(marker => marker.remove());
-    if (movingMarker.current) {
-      movingMarker.current.remove();
-      movingMarker.current = null;
+  // Reset everything
+  const resetMap = useCallback(() => {
+    if (startMarker.current) {
+      startMarker.current.remove();
+      startMarker.current = null;
     }
-    setMarkers([]);
+    
+    if (endMarker.current) {
+      endMarker.current.remove();
+      endMarker.current = null;
+    }
+    
     clearRoute();
     setCalcTime(null);
     setError(null);
-  }, [markers, clearRoute]);
+    setMode('idle');
+    console.log('Map reset complete');
+  }, [clearRoute]);
 
-  const drawRoute = useCallback((pathData: Coordinates[]) => {
-    if (!map.current || !pathData.length) return;
-
+  // Calculate route
+  const calculateRoute = useCallback(async () => {
+    if (!map.current || !startMarker.current || !endMarker.current) {
+      setError('Cannot calculate route: missing markers');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      clearRoute();
-
+      const startCoords = startMarker.current.getLngLat();
+      const endCoords = endMarker.current.getLngLat();
+      
+      console.log('Calculating route between points:', {
+        start: { lat: startCoords.lat, lng: startCoords.lng },
+        end: { lat: endCoords.lat, lng: endCoords.lng }
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: { lat: startCoords.lat, lng: startCoords.lng },
+          end: { lat: endCoords.lat, lng: endCoords.lng }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data: RouteData = await response.json();
+      console.log('Route calculated:', data);
+      setCalcTime(data.calculation_time_ms);
+      
+      // Draw the route
+      if (data.path.length > 0) {
+        drawRoute(data.path);
+      } else {
+        setError('Could not find a route between these points');
+      }
+    } catch (err) {
+      console.error('Route calculation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to calculate route');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [drawRoute]);
+  
+  // Draw route on map
+  const drawRoute = useCallback((path: Coordinates[]) => {
+    if (!map.current || path.length === 0) return;
+    
+    clearRoute();
+    
+    try {
+      // Create a GeoJSON source for the route
+      const geojson = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: path.map(point => [point.lng, point.lat])
+        }
+      };
+      
+      // Add the source to the map
       map.current.addSource('route', {
         type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: pathData.map(point => [point.lng, point.lat])
-          }
+        data: geojson as any
+      });
+      
+      // Add an outline for the route
+      map.current.addLayer({
+        id: 'route-outline',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 8
         }
       });
-
+      
+      // Add the route line itself
       map.current.addLayer({
         id: 'route',
         type: 'line',
@@ -91,175 +171,222 @@ const MapSection: React.FC = () => {
           'line-cap': 'round'
         },
         paint: {
-          'line-color': '#4a90e2',
-          'line-width': 4,
-          'line-opacity': 0.8
+          'line-color': '#4338ca',
+          'line-width': 4
         }
       });
-
-      const bounds = new mapboxgl.LngLatBounds();
-      pathData.forEach(point => bounds.extend([point.lng, point.lat]));
-      map.current.fitBounds(bounds, { padding: 50 });
-
-      setRoute('route');
+      
+      // Don't automatically fit bounds or zoom
+      console.log('Route drawn successfully with', path.length, 'points');
     } catch (err) {
       console.error('Error drawing route:', err);
-      setError('Failed to draw route');
+      setError('Failed to display route');
     }
   }, [clearRoute]);
-
-  const handleMapClick = useCallback(async (e: mapboxgl.MapMouseEvent) => {
-    if (!map.current) return;
-
-    const coordinates = {
-      lat: e.lngLat.lat,
-      lng: e.lngLat.lng
-    };
-
-    console.log('Clicked coordinates:', coordinates);
-
-    if (markers.length >= 2) {
-      clearMarkers();
-      return;
+  
+  // Handle map clicks
+  const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent) => {
+    if (!map.current || mode === 'idle') return;
+    
+    // Prevent event defaults to stop map from zooming/panning
+    if (e.originalEvent) {
+      e.originalEvent.stopPropagation();
+      e.originalEvent.preventDefault();
     }
-
-    const marker = new mapboxgl.Marker({
-      color: markers.length === 0 ? '#00ff00' : '#ff0000'
+    
+    const lngLat = e.lngLat;
+    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${mode}`);
+    
+    // Force immediate mode check for reliability
+    const currentMode = mode;
+    
+    // Create marker element
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.width = '25px';
+    el.style.height = '25px';
+    el.style.borderRadius = '50%';
+    el.style.backgroundColor = currentMode === 'start' ? '#8B5CF6' : '#EC4899';
+    el.style.border = '3px solid white';
+    el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+    
+    // Create the marker with element option
+    const marker = new mapboxgl.Marker({ 
+      element: el,
+      draggable: false, // Ensure it's not draggable to avoid issues
     })
-      .setLngLat([coordinates.lng, coordinates.lat])
+      .setLngLat(lngLat)
       .addTo(map.current);
-
-    const newMarkers = [...markers, marker];
-    setMarkers(newMarkers);
-
-    if (newMarkers.length === 2) {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            start: {
-              lat: newMarkers[0].getLngLat().lat,
-              lng: newMarkers[0].getLngLat().lng
-            },
-            end: {
-              lat: newMarkers[1].getLngLat().lat,
-              lng: newMarkers[1].getLngLat().lng
-            }
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to calculate route: ${response.statusText}`);
-        }
-
-        const data: RouteData = await response.json();
-        setCalcTime(data.calculation_time_ms);
-        drawRoute(data.path);
-      } catch (error) {
-        console.error('Route calculation error:', error);
-        setError(error instanceof Error ? error.message : 'Failed to calculate route');
-        clearMarkers();
-      } finally {
-        setIsLoading(false);
+    
+    console.log('Created marker:', marker);
+    
+    // Store the marker and update state based on mode
+    if (currentMode === 'start') {
+      console.log('Placing start marker');
+      if (startMarker.current) {
+        startMarker.current.remove();
+      }
+      startMarker.current = marker;
+    } else if (currentMode === 'end') {
+      console.log('Placing end marker');
+      if (endMarker.current) {
+        endMarker.current.remove();
+      }
+      endMarker.current = marker;
+      
+      // If we have both markers, calculate route
+      if (startMarker.current) {
+        calculateRoute();
       }
     }
-  }, [markers, clearMarkers, drawRoute]);
-
+    
+    // Return to idle mode AFTER marker placement is complete
+    setTimeout(() => {
+      setMode('idle');
+      console.log('Returned to idle mode');
+    }, 10);
+  }, [mode, calculateRoute]);
+  
+  // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
-
+    
     console.log('Initializing map...');
-    try {
-      const mapInstance = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-98, 39],
-        zoom: 2,
-        attributionControl: true
-      });
-
-      map.current = mapInstance;
-
-      mapInstance.on('load', () => {
-        console.log('Map loaded successfully');
-        mapInstance.resize();
-        mapInstance.on('click', handleMapClick);
-      });
-
-      mapInstance.on('error', (e) => {
-        console.error('Map error:', e);
-        setError('Failed to load map');
-      });
-
+    const mapInstance = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [-98, 39], 
+      zoom: 3,
+      attributionControl: true,
+      doubleClickZoom: false, // Disable double click zoom
+      dragPan: true,  // Keep drag enabled
+    });
+    
+    mapInstance.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+    map.current = mapInstance;
+    
+    // Set up click handler only after map is fully loaded
+    mapInstance.once('load', () => {
+      console.log('Map loaded successfully');
+      
+      // Add a separate handler for the click event to prevent other handlers
+      const mapClickHandler = (e: mapboxgl.MapMouseEvent) => {
+        // Only process clicks if we're in a marker placement mode
+        if (mode !== 'idle') {
+          // Stop event from being handled by other handlers
+          e.originalEvent.stopPropagation();
+          e.originalEvent.preventDefault();
+          
+          // Call our click handler
+          handleMapClick(e);
+          return false;
+        }
+      };
+      
+      mapInstance.on('click', mapClickHandler);
+      
+      // Save the handler for cleanup
       return () => {
+        mapInstance.off('click', mapClickHandler);
         mapInstance.remove();
         map.current = null;
       };
-    } catch (err) {
-      console.error('Error initializing map:', err);
-      setError('Failed to initialize map');
-    }
-  }, [handleMapClick]);
-
+    });
+  }, [handleMapClick, mode]);
+  
   return (
     <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8 }}
-      className="relative py-24 bg-gray-100"
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="py-16 bg-white"
+      id="map-section"
     >
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="mb-12 text-center">
+      <div className="container px-4 mx-auto">
+        <div className="text-center mb-12">
           <motion.h2
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-4xl font-bold mb-4"
+            initial={{ opacity: 0, y: -20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-3xl font-bold text-gray-900 mb-4"
           >
-            Interactive Navigation
+            Calculate Your Route
           </motion.h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Click to set start (green) and end (red) points. Watch the route appear!
-          </p>
-          {calcTime && (
-            <p className="text-sm text-gray-500 mt-2">
-              Route calculated in {calcTime.toFixed(2)}ms
-            </p>
-          )}
-          {error && (
-            <p className="text-sm text-red-500 mt-2">
-              {error}
-            </p>
-          )}
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-lg text-gray-600 max-w-2xl mx-auto"
+          >
+            Select your starting point and destination to find the optimal route between them.
+          </motion.p>
         </div>
         
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="flex flex-wrap gap-3 justify-center mb-4">
+            <button
+              onClick={(e) => {
+                e.preventDefault(); // Prevent any default button behavior
+                setMode('start');
+                setError(null);
+                console.log('Start mode activated'); // Add logging
+              }}
+              disabled={isLoading}
+              className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all ${
+                mode === 'start'
+                ? 'bg-purple-600 text-white ring-2 ring-purple-300'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+              }`}
+            >
+              1. Select Start Point
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault(); // Prevent any default button behavior
+                setMode('end');
+                setError(null);
+                console.log('End mode activated'); // Add logging
+              }}
+              disabled={isLoading}
+              className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all ${
+                mode === 'end'
+                ? 'bg-purple-600 text-white ring-2 ring-purple-300'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+              }`}
+            >
+              2. Select End Point
+            </button>
+          </div>
+        </div>
+        
+        <div className="max-w-5xl mx-auto">
           <motion.div
-            whileHover={{ scale: 1.01 }}
-            className="rounded-2xl overflow-hidden shadow-xl border border-gray-200 h-[550px] relative"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="relative rounded-xl overflow-hidden shadow-xl border border-gray-200 h-[600px]"
           >
             <div 
               ref={mapContainer} 
               className="absolute inset-0 w-full h-full"
             />
+            
             {isLoading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+                <div className="p-4 bg-white bg-opacity-90 rounded-lg shadow-lg flex items-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-3"></div>
+                  <p className="text-gray-700">Calculating route...</p>
+                </div>
               </div>
             )}
-            <button
-              onClick={clearMarkers}
-              className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 px-4 py-2 rounded-lg shadow transition-all duration-300 z-10"
-            >
-              Reset
-            </button>
+            
+            {mode !== 'idle' && (
+              <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-white py-2 px-4 rounded-lg shadow-lg z-10">
+                <p className="font-medium text-gray-700">
+                  {mode === 'start' ? 'Click to place start marker' : 'Click to place end marker'}
+                </p>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

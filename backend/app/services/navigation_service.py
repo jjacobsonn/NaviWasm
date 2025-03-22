@@ -51,6 +51,28 @@ class NavigationService:
     ) -> RouteResponse:
         start_time = time.perf_counter()
         
+        try:
+            # Use the WASM module if available
+            if hasattr(self, 'wasm_instance'):
+                # Call the find_path function in the WASM module
+                path_data = self.find_path(start.lat, start.lng, end.lat, end.lng)
+                path = [Coordinates(lat=point['lat'], lng=point['lng']) for point in path_data]
+            else:
+                # Fallback to Python implementation if WASM not available
+                path = self._calculate_path_python(start, end)
+            
+            calculation_time = (time.perf_counter() - start_time) * 1000
+            
+            return RouteResponse(
+                path=path,
+                calculation_time_ms=calculation_time
+            )
+        except Exception as e:
+            print(f"Error calculating route: {e}")
+            # Fallback to simple interpolation
+            return self._calculate_simple_route(start, end, start_time)
+
+    def _calculate_simple_route(self, start: Coordinates, end: Coordinates, start_time: float) -> RouteResponse:
         # Simple linear interpolation for testing
         steps = 10
         path: List[Coordinates] = []
