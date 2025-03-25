@@ -25,6 +25,20 @@ if (!MAPBOX_TOKEN) {
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
+// Add this function after your other imports
+function calculateDistance(start: Coordinates, end: Coordinates): number {
+  // Implementation of the Haversine formula to calculate distance
+  const R = 6371; // Earth's radius in km
+  const dLat = (end.lat - start.lat) * Math.PI / 180;
+  const dLon = (end.lng - start.lng) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(start.lat * Math.PI / 180) * Math.cos(end.lat * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in km
+}
+
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -34,6 +48,7 @@ const MapSection: React.FC = () => {
   const [calcTime, setCalcTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'idle' | 'start' | 'end'>('idle');
+  const [markerCount, setMarkerCount] = useState(0);
 
   // Clear route
   const clearRoute = useCallback(() => {
@@ -78,15 +93,7 @@ const MapSection: React.FC = () => {
     if (!map.current || path.length === 0) return;
     
     // Clear any existing route
-    if (map.current.getLayer('route')) {
-      map.current.removeLayer('route');
-    }
-    if (map.current.getLayer('route-outline')) {
-      map.current.removeLayer('route-outline');
-    }
-    if (map.current.getSource('route')) {
-      map.current.removeSource('route');
-    }
+    clearRoute();
     
     try {
       // Create a GeoJSON source for the route
@@ -134,12 +141,38 @@ const MapSection: React.FC = () => {
         }
       });
       
+      // Calculate the midpoint of the path for popup positioning
+      if (path.length > 1 && startMarker.current && endMarker.current) {
+        const start = path[0];
+        const end = path[path.length - 1];
+        const midIndex = Math.floor(path.length / 2);
+        const midpoint = path[midIndex];
+        
+        // Calculate distance
+        const distance = calculateDistance(start, end);
+        const distanceStr = distance < 1 
+          ? `${(distance * 1000).toFixed(0)} m` 
+          : `${distance.toFixed(2)} km`;
+        
+        // Create and add popup
+        const popup = new mapboxgl.Popup({ closeButton: false, className: 'route-popup' })
+          .setLngLat([midpoint.lng, midpoint.lat])
+          .setHTML(`
+            <div class="p-2 text-center">
+              <div class="font-bold text-gray-900">Distance</div>
+              <div class="text-lg text-indigo-600">${distanceStr}</div>
+              <div class="text-sm text-gray-600">Calculation time: ${calcTime?.toFixed(2) || 0} ms</div>
+            </div>
+          `)
+          .addTo(map.current);
+      }
+      
       console.log('Route drawn successfully with', path.length, 'points');
     } catch (err) {
       console.error('Error drawing route:', err);
       setError('Failed to display route');
     }
-  }, []);
+  }, [calcTime, clearRoute]);
 
   // Calculate route
   const calculateRoute = useCallback(async () => {
@@ -194,73 +227,61 @@ const MapSection: React.FC = () => {
     }
   }, [drawRoute]);
   
-  // Handle map clicks
-  const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent, clickMode: 'idle' | 'start' | 'end') => {
-    if (!map.current || clickMode === 'idle') return;
+  // Handle map clicks - Fix the duplicate lngLat declarations
+  const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent) => {
+    if (!map.current) return;
     
     const lngLat = e.lngLat;
-    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${clickMode}`);
+    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat}`);
     
-    // Prevent event defaults to stop map from zooming/panning
-    if (e.originalEvent) {
-      e.originalEvent.stopPropagation();
-      e.originalEvent.preventDefault();
-    }
+    // Determine if this is the first or second marker
+    const isFirstMarker = !startMarker.current;
+    const isSecondMarker = startMarker.current && !endMarker.current;
     
-    const lngLat = e.lngLat;
-    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${clickMode}`);
+    // If we already have both markers, ignore the click
+    if (!isFirstMarker && !isSecondMarker) return;
     
-    // Force immediate mode check for reliability
-    const currentMode = clickMode;
-    
-    // Create marker element
+    // Create marker element with the appropriate color
     const el = document.createElement('div');
     el.className = 'marker';
     el.style.width = '25px';
     el.style.height = '25px';
     el.style.borderRadius = '50%';
-    el.style.backgroundColor = currentMode === 'start' ? '#8B5CF6' : '#EC4899';
+    el.style.backgroundColor = isFirstMarker ? '#8B5CF6' : '#EC4899';
     el.style.border = '3px solid white';
     el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
     
-    // Create the marker with element option
+    // Create the marker
     const marker = new mapboxgl.Marker({ 
       element: el,
-      draggable: false, // Ensure it's not draggable to avoid issues
+      draggable: true, // Make markers draggable
     })
       .setLngLat(lngLat)
       .addTo(map.current);
     
-    console.log('Created marker:', marker);
-    
-    // Store the marker and update state based on mode
-    if (currentMode === 'start') {
-      console.log('Placing start marker');
-      if (startMarker.current) {
-        startMarker.current.remove();
-      }
-      startMarker.current = marker;
-    } else if (currentMode === 'end') {
-      console.log('Placing end marker');
-      if (endMarker.current) {
-        endMarker.current.remove();
-      }
-      endMarker.current = marker;
-      
-      // If we have both markers, calculate route
-      if (startMarker.current) {
+    // Add a dragend event to recalculate route when markers are moved
+    marker.on('dragend', () => {
+      if (startMarker.current && endMarker.current) {
         calculateRoute();
       }
-    }
+    });
     
-    // Return to idle mode AFTER marker placement is complete
-    setTimeout(() => {
-      setMode('idle');
-      console.log('Returned to idle mode');
-    }, 10);
+    // Update the appropriate marker reference
+    if (isFirstMarker) {
+      startMarker.current = marker;
+      setMarkerCount(1);
+      console.log('Start marker placed');
+    } else {
+      endMarker.current = marker;
+      setMarkerCount(2);
+      console.log('End marker placed');
+      
+      // Calculate route automatically once we have both markers
+      calculateRoute();
+    }
   }, [calculateRoute]);
   
-  // Initialize map
+  // Initialize map - Fix the mapClickHandler reference
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
     
@@ -278,27 +299,39 @@ const MapSection: React.FC = () => {
     mapInstance.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
     map.current = mapInstance;
     
+    // Add this inside the useEffect for map initialization, before the return statement
+    const style = document.createElement('style');
+    style.textContent = `
+      .mapboxgl-popup-content {
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+      }
+      .route-popup .mapboxgl-popup-content {
+        background-color: rgba(255, 255, 255, 0.95);
+        border: 1px solid #e2e8f0;
+      }
+      .marker {
+        cursor: pointer;
+      }
+    `;
+    document.head.appendChild(style);
+
     // Set up click handler only after map is fully loaded
     mapInstance.once('load', () => {
       console.log('Map loaded successfully');
       
-      // Add a separate handler for the click event to prevent other handlers
-      mapInstance.on('click', (e) => {
-        console.log('Map clicked at:', e.lngLat);
-        
-        if (mode !== 'idle') {
-          handleMapClick(e, mode);
-        }
-      });
+      // Direct map click handler - no mode needed
+      mapInstance.on('click', handleMapClick);
       
-      // Save the handler for cleanup
       return () => {
-        mapInstance.off('click', mapClickHandler);
+        mapInstance.off('click', handleMapClick);
+        document.head.removeChild(style);
         mapInstance.remove();
         map.current = null;
       };
     });
-  }, [handleMapClick, mode]);
+  }, [handleMapClick]);
 
   const placeStartMarkerAtCenter = useCallback(() => {
     if (!map.current) return;
@@ -351,56 +384,25 @@ const MapSection: React.FC = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-lg text-gray-600 max-w-2xl mx-auto"
           >
-            Select your starting point and destination to find the optimal route between them.
+            Click directly on the map to place your starting point, then click again to set your destination.
           </motion.p>
         </div>
         
         <div className="max-w-5xl mx-auto mb-8">
           <div className="flex flex-wrap gap-3 justify-center mb-4">
             <button
-              onClick={(e) => {
-                e.preventDefault(); // Prevent any default button behavior
-                console.log('Start button clicked, changing mode from', mode, 'to start');
-                setMode('start');
-                setError(null);
-                console.log('Start mode activated'); // Add logging
-              }}
-              disabled={isLoading}
-              className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all ${
-                mode === 'start'
-                ? 'bg-purple-600 text-white ring-2 ring-purple-300'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-              }`}
-            >
-              1. Select Start Point
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault(); // Prevent any default button behavior
-                console.log('End button clicked, changing mode from', mode, 'to end');
-                setMode('end');
-                setError(null);
-                console.log('End mode activated'); // Add logging
-              }}
-              disabled={isLoading}
-              className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all ${
-                mode === 'end'
-                ? 'bg-purple-600 text-white ring-2 ring-purple-300'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-              }`}
-            >
-              2. Select End Point
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                resetMap();
-                console.log('Map reset triggered');
-              }}
+              onClick={resetMap}
               className="px-4 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50"
             >
               Reset Map
             </button>
+            <div className="flex items-center">
+              <span className="text-gray-600">
+                {markerCount === 0 ? 'Click to place starting point' : 
+                 markerCount === 1 ? 'Click to place destination point' : 
+                 'Route calculated - click Reset to start over'}
+              </span>
+            </div>
           </div>
         </div>
         
