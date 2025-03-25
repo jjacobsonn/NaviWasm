@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
@@ -13,6 +13,11 @@ from app.core.errors import (
     validation_exception_handler,
     generic_exception_handler
 )
+from fastapi.security import APIKeyHeader
+from starlette.status import HTTP_429_TOO_MANY_REQUESTS
+import time
+from datetime import datetime, timedelta
+import asyncio
 
 settings = get_settings()
 
@@ -57,8 +62,56 @@ app.add_middleware(
 async def root():
     return {"message": "Welcome to the Navigation System API"}
 
-# Include API router
-app.include_router(api_router, prefix="/api/v1")
+# Simple in-memory rate limiter store
+rate_limit_store = {}
+RATE_LIMIT = 100  # requests per minute
+
+async def rate_limiter(request: Request):
+    client_ip = request.client.host
+    now = datetime.now()
+    
+    # Initialize or clean up old entries
+    if client_ip not in rate_limit_store:
+        rate_limit_store[client_ip] = []
+    
+    # Remove entries older than 1 minute
+    rate_limit_store[client_ip] = [
+        timestamp for timestamp in rate_limit_store[client_ip] 
+        if timestamp > now - timedelta(minutes=1)
+    ]
+    
+    # Check if rate limit is exceeded
+    if len(rate_limit_store[client_ip]) >= RATE_LIMIT:
+        raise HTTPException(
+            status_code=HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded"
+        )
+    
+    # Add current request timestamp
+    rate_limit_store[client_ip].append(now)
+    
+    # Schedule cleanup for old entries
+    asyncio.create_task(cleanup_old_rate_limits())
+    
+    return True
+
+async def cleanup_old_rate_limits():
+    await asyncio.sleep(60)  # Wait 1 minute
+    now = datetime.now()
+    for ip in list(rate_limit_store.keys()):
+        rate_limit_store[ip] = [
+            timestamp for timestamp in rate_limit_store[ip] 
+            if timestamp > now - timedelta(minutes=1)
+        ]
+        if not rate_limit_store[ip]:
+            del rate_limit_store[ip]
+
+# Include API router with rate limiter
+app.include_router(
+    api_router, 
+    prefix="/api/v1", 
+    dependencies=[Depends(rate_limiter)]
+)
 
 # Add exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
