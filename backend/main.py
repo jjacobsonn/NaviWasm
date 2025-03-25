@@ -19,13 +19,17 @@ import time
 from datetime import datetime, timedelta
 import asyncio
 from app.middleware.rate_limiter import rate_limiter
+from app.middleware.error_handler import setup_error_handlers
 
 settings = get_settings()
 
 app = FastAPI(
     title="NaviWasm API",
-    description="A real-time navigation system with Rust WASM pathfinding",
-    version="1.0.0"
+    description="A real-time navigation API powered by WebAssembly for optimal pathfinding",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Mount static files directory
@@ -44,15 +48,10 @@ async def favicon():
         )
     return FileResponse(favicon_path)
 
-# Documentation endpoint
-@app.get("/docs")
-async def get_docs():
-    return get_swagger_ui_html(openapi_url=f"{settings.API_V1_STR}/openapi.json", title=f"{settings.PROJECT_NAME} - API Documentation")
-
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,7 +60,7 @@ app.add_middleware(
 # Add a root endpoint
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the Navigation System API"}
+    return {"message": "Welcome to NaviWasm API", "docs": "/api/docs"}
 
 # Simple in-memory rate limiter store
 rate_limit_store = {}
@@ -113,6 +112,9 @@ app.include_router(
     prefix="/api/v1", 
     dependencies=[Depends(rate_limiter.check_rate_limit)]
 )
+
+# Setup error handlers
+setup_error_handlers(app)
 
 # Add exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
