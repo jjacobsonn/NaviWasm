@@ -39,6 +39,15 @@ function calculateDistance(start: Coordinates, end: Coordinates): number {
   return R * c; // Distance in km
 }
 
+interface RouteItem {
+  startMarker: mapboxgl.Marker;
+  endMarker: mapboxgl.Marker;
+  popup: mapboxgl.Popup | null;
+  sourceId: string;
+  layerId: string;
+  outlineLayerId: string;
+}
+
 const MapSection: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -50,6 +59,9 @@ const MapSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'idle' | 'start' | 'end'>('idle');
   const [markerCount, setMarkerCount] = useState(0);
+  const [routes, setRoutes] = useState<RouteItem[]>([]);
+  const [activeRouteIndex, setActiveRouteIndex] = useState<number>(-1);
+  const tempStartMarker = useRef<mapboxgl.Marker | null>(null);
 
   // Clear route
   const clearRoute = useCallback(() => {
@@ -72,6 +84,7 @@ const MapSection: React.FC = () => {
 
   // Reset everything
   const resetMap = useCallback(() => {
+    // Remove current markers and popup
     if (startMarker.current) {
       startMarker.current.remove();
       startMarker.current = null;
@@ -82,26 +95,62 @@ const MapSection: React.FC = () => {
       endMarker.current = null;
     }
     
-    // Also remove the popup
     if (routePopup.current) {
       routePopup.current.remove();
       routePopup.current = null;
     }
     
+    // Remove ALL stored routes, markers, and popups
+    routes.forEach(route => {
+      // Remove markers
+      route.startMarker.remove();
+      route.endMarker.remove();
+      
+      // Remove popup
+      if (route.popup) {
+        route.popup.remove();
+      }
+      
+      // Remove route layers and sources
+      if (map.current) {
+        try {
+          if (map.current.getLayer(route.layerId)) {
+            map.current.removeLayer(route.layerId);
+          }
+          if (map.current.getLayer(route.outlineLayerId)) {
+            map.current.removeLayer(route.outlineLayerId);
+          }
+          if (map.current.getSource(route.sourceId)) {
+            map.current.removeSource(route.sourceId);
+          }
+        } catch (err) {
+          console.error('Error removing route layers/sources:', err);
+        }
+      }
+    });
+    
+    // Clear the routes array
+    setRoutes([]);
+    
+    // Clear current route
     clearRoute();
+    
     setCalcTime(null);
     setError(null);
     setMode('idle');
     setMarkerCount(0);
-    console.log('Map reset complete');
-  }, [clearRoute]);
+    console.log('Map completely reset');
+  }, [clearRoute, routes]);
 
   // Draw route on map
   const drawRoute = useCallback((path: Coordinates[]) => {
     if (!map.current || path.length === 0) return;
     
-    // Clear any existing route
-    clearRoute();
+    // Generate unique IDs for this route
+    const routeId = `route-${routes.length}`;
+    const sourceId = `source-${routeId}`;
+    const layerId = routeId;
+    const outlineLayerId = `${routeId}-outline`;
     
     try {
       // Create a GeoJSON source for the route
@@ -115,16 +164,16 @@ const MapSection: React.FC = () => {
       };
       
       // Add the source to the map
-      map.current.addSource('route', {
+      map.current.addSource(sourceId, {
         type: 'geojson',
         data: geojson as any
       });
       
-      // Add outline and route layers
+      // Add outline and route layers with unique IDs
       map.current.addLayer({
-        id: 'route-outline',
+        id: outlineLayerId,
         type: 'line',
-        source: 'route',
+        source: sourceId,
         layout: {
           'line-join': 'round',
           'line-cap': 'round'
@@ -136,9 +185,9 @@ const MapSection: React.FC = () => {
       });
       
       map.current.addLayer({
-        id: 'route',
+        id: layerId,
         type: 'line',
-        source: 'route',
+        source: sourceId,
         layout: {
           'line-join': 'round',
           'line-cap': 'round'
@@ -171,7 +220,8 @@ const MapSection: React.FC = () => {
         routePopup.current = new mapboxgl.Popup({ 
           closeButton: false, 
           className: 'route-popup',
-          closeOnClick: false // Prevent closing when clicking the map
+          closeOnClick: false, // Prevent closing when clicking the map
+          closeOnMove: false // Prevent closing when map moves
         })
           .setLngLat([midpoint.lng, midpoint.lat])
           .setHTML(`
@@ -189,7 +239,7 @@ const MapSection: React.FC = () => {
       console.error('Error drawing route:', err);
       setError('Failed to display route');
     }
-  }, [calcTime, clearRoute]);
+  }, [calcTime, routes]);
 
   // Calculate route
   const calculateRoute = useCallback(async () => {
@@ -251,12 +301,37 @@ const MapSection: React.FC = () => {
     const lngLat = e.lngLat;
     console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat}`);
     
+    // If we have both markers already, start a new route sequence
+    if (startMarker.current && endMarker.current) {
+      // Store the completed route before starting a new one
+      const routeId = `route-${routes.length}`;
+      
+      // Make sure we have a source ID, layer ID and outline layer ID to store
+      const sourceId = `source-${routeId}`;
+      const layerId = routeId;
+      const outlineLayerId = `${routeId}-outline`;
+      
+      const newRouteItem: RouteItem = {
+        startMarker: startMarker.current,
+        endMarker: endMarker.current,
+        popup: routePopup.current, // This may be null but that's OK
+        sourceId: sourceId,
+        layerId: layerId,
+        outlineLayerId: outlineLayerId,
+      };
+      
+      setRoutes(prev => [...prev, newRouteItem]);
+      
+      // Create new markers instead of nullifying the current ones
+      startMarker.current = null;
+      endMarker.current = null;
+      routePopup.current = null;
+      setMarkerCount(0);
+    }
+    
+    // Rest of the function stays the same...
     // Determine if this is the first or second marker
     const isFirstMarker = !startMarker.current;
-    const isSecondMarker = startMarker.current && !endMarker.current;
-    
-    // If we already have both markers, ignore the click
-    if (!isFirstMarker && !isSecondMarker) return;
     
     // Create marker element with the appropriate color
     const el = document.createElement('div');
@@ -271,7 +346,7 @@ const MapSection: React.FC = () => {
     // Create the marker
     const marker = new mapboxgl.Marker({ 
       element: el,
-      draggable: true, // Make markers draggable
+      draggable: true,
     })
       .setLngLat(lngLat)
       .addTo(map.current);
@@ -296,7 +371,7 @@ const MapSection: React.FC = () => {
       // Calculate route automatically once we have both markers
       calculateRoute();
     }
-  }, [calculateRoute]);
+  }, [calculateRoute, routes]);
   
   // Initialize map - Fix the mapClickHandler reference
   useEffect(() => {
@@ -350,33 +425,6 @@ const MapSection: React.FC = () => {
     });
   }, [handleMapClick]);
 
-  const placeStartMarkerAtCenter = useCallback(() => {
-    if (!map.current) return;
-    
-    const center = map.current.getCenter();
-    console.log('Placing start marker at center:', center);
-    
-    const el = document.createElement('div');
-    el.className = 'marker';
-    el.style.width = '25px';
-    el.style.height = '25px';
-    el.style.borderRadius = '50%';
-    el.style.backgroundColor = '#8B5CF6';
-    el.style.border = '3px solid white';
-    el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
-    
-    if (startMarker.current) {
-      startMarker.current.remove();
-    }
-    
-    startMarker.current = new mapboxgl.Marker({
-      element: el,
-      draggable: false
-    })
-      .setLngLat(center)
-      .addTo(map.current);
-  }, []);
-  
   return (
     <motion.section
       initial={{ opacity: 0 }}
@@ -402,6 +450,7 @@ const MapSection: React.FC = () => {
             className="text-lg text-gray-600 max-w-2xl mx-auto"
           >
             Click directly on the map to place your starting point, then click again to set your destination.
+            Click anywhere to start a new route calculation.
           </motion.p>
         </div>
         
@@ -413,14 +462,21 @@ const MapSection: React.FC = () => {
             >
               Reset Map
             </button>
+            
             <div className="flex items-center">
               <span className="text-gray-600">
                 {markerCount === 0 ? 'Click to place starting point' : 
                  markerCount === 1 ? 'Click to place destination point' : 
-                 'Route calculated - click Reset to start over'}
+                 'Route calculated - click anywhere to start a new route'}
               </span>
             </div>
           </div>
+          
+          {routes.length > 0 && (
+            <div className="mt-2 text-center">
+              <p className="text-sm text-gray-500">{routes.length} route{routes.length !== 1 ? 's' : ''} on map</p>
+            </div>
+          )}
         </div>
         
         <div className="max-w-5xl mx-auto">
@@ -443,25 +499,7 @@ const MapSection: React.FC = () => {
                 </div>
               </div>
             )}
-            
-            {mode !== 'idle' && (
-              <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-white py-2 px-4 rounded-lg shadow-lg z-10">
-                <p className="font-medium text-gray-700">
-                  {mode === 'start' ? 'Click to place start marker' : 'Click to place end marker'}
-                </p>
-              </div>
-            )}
           </motion.div>
-        </div>
-        
-        <div className="mt-4 flex justify-center gap-3">
-          <button
-            onClick={placeStartMarkerAtCenter}
-            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg"
-          >
-            Place Start At Center
-          </button>
-          {/* Add similar function for end marker */}
         </div>
       </div>
     </motion.section>
