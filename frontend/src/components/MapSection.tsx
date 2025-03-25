@@ -455,21 +455,21 @@ const MapSection: React.FC = () => {
         </div>
         
         <div className="max-w-5xl mx-auto mb-8">
-          <div className="flex flex-wrap gap-3 justify-center mb-4">
-            <button
-              onClick={resetMap}
-              className="px-4 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50"
-            >
-              Reset Map
-            </button>
-            
-            <div className="flex items-center">
-              <span className="text-gray-600">
+          <div className="flex flex-col items-center gap-3 justify-center mb-4">
+            <div className="text-center mb-2">
+              <span className="text-gray-600 font-medium">
                 {markerCount === 0 ? 'Click to place starting point' : 
                  markerCount === 1 ? 'Click to place destination point' : 
                  'Route calculated - click anywhere to start a new route'}
               </span>
             </div>
+            
+            <button
+              onClick={resetMap}
+              className="px-6 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
+            >
+              Reset Map
+            </button>
           </div>
           
           {routes.length > 0 && (
