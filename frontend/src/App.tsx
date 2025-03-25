@@ -7,6 +7,11 @@ import MapSection from './components/MapSection';
 import FeaturesSection from './components/FeaturesSection';
 import Footer from './components/Footer';
 
+// Disable Mapbox telemetry which is causing connection errors
+// Using a more compatible approach
+(mapboxgl as any).workerCount = 2;
+mapboxgl.setRTLTextPlugin = () => Promise.resolve();
+
 // Initialize Mapbox token
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 if (!MAPBOX_TOKEN) {

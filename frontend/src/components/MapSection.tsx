@@ -162,7 +162,10 @@ const MapSection: React.FC = () => {
       
       const response = await fetch(`${API_BASE_URL}/api/v1/navigation/route`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-API-Key': 'development_key'
+        },
         body: JSON.stringify({
           start: { lat: startCoords.lat, lng: startCoords.lng },
           end: { lat: endCoords.lat, lng: endCoords.lng }
@@ -193,6 +196,10 @@ const MapSection: React.FC = () => {
   
   // Handle map clicks
   const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent) => {
+    console.log('Map click event received', e);
+    console.log('Current mode:', mode);
+    console.log('Map reference exists:', !!map.current);
+
     if (!map.current || mode === 'idle') return;
     
     // Prevent event defaults to stop map from zooming/panning
@@ -277,20 +284,14 @@ const MapSection: React.FC = () => {
       console.log('Map loaded successfully');
       
       // Add a separate handler for the click event to prevent other handlers
-      const mapClickHandler = (e: mapboxgl.MapMouseEvent) => {
-        // Only process clicks if we're in a marker placement mode
+      mapInstance.on('click', (e) => {
+        console.log('Map clicked at:', e.lngLat);
+        
         if (mode !== 'idle') {
-          // Stop event from being handled by other handlers
-          e.originalEvent.stopPropagation();
-          e.originalEvent.preventDefault();
-          
-          // Call our click handler
+          // Don't stop propagation immediately - let's see if this is the issue
           handleMapClick(e);
-          return false;
         }
-      };
-      
-      mapInstance.on('click', mapClickHandler);
+      });
       
       // Save the handler for cleanup
       return () => {
