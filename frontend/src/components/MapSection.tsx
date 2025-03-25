@@ -195,12 +195,11 @@ const MapSection: React.FC = () => {
   }, [drawRoute]);
   
   // Handle map clicks
-  const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent) => {
-    console.log('Map click event received', e);
-    console.log('Current mode:', mode);
-    console.log('Map reference exists:', !!map.current);
-
-    if (!map.current || mode === 'idle') return;
+  const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent, clickMode: 'idle' | 'start' | 'end') => {
+    if (!map.current || clickMode === 'idle') return;
+    
+    const lngLat = e.lngLat;
+    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${clickMode}`);
     
     // Prevent event defaults to stop map from zooming/panning
     if (e.originalEvent) {
@@ -209,10 +208,10 @@ const MapSection: React.FC = () => {
     }
     
     const lngLat = e.lngLat;
-    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${mode}`);
+    console.log(`Map clicked at ${lngLat.lng}, ${lngLat.lat} in mode ${clickMode}`);
     
     // Force immediate mode check for reliability
-    const currentMode = mode;
+    const currentMode = clickMode;
     
     // Create marker element
     const el = document.createElement('div');
@@ -259,7 +258,7 @@ const MapSection: React.FC = () => {
       setMode('idle');
       console.log('Returned to idle mode');
     }, 10);
-  }, [mode, calculateRoute]);
+  }, [calculateRoute]);
   
   // Initialize map
   useEffect(() => {
@@ -288,8 +287,7 @@ const MapSection: React.FC = () => {
         console.log('Map clicked at:', e.lngLat);
         
         if (mode !== 'idle') {
-          // Don't stop propagation immediately - let's see if this is the issue
-          handleMapClick(e);
+          handleMapClick(e, mode);
         }
       });
       
@@ -301,6 +299,33 @@ const MapSection: React.FC = () => {
       };
     });
   }, [handleMapClick, mode]);
+
+  const placeStartMarkerAtCenter = useCallback(() => {
+    if (!map.current) return;
+    
+    const center = map.current.getCenter();
+    console.log('Placing start marker at center:', center);
+    
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.width = '25px';
+    el.style.height = '25px';
+    el.style.borderRadius = '50%';
+    el.style.backgroundColor = '#8B5CF6';
+    el.style.border = '3px solid white';
+    el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+    
+    if (startMarker.current) {
+      startMarker.current.remove();
+    }
+    
+    startMarker.current = new mapboxgl.Marker({
+      element: el,
+      draggable: false
+    })
+      .setLngLat(center)
+      .addTo(map.current);
+  }, []);
   
   return (
     <motion.section
@@ -335,6 +360,7 @@ const MapSection: React.FC = () => {
             <button
               onClick={(e) => {
                 e.preventDefault(); // Prevent any default button behavior
+                console.log('Start button clicked, changing mode from', mode, 'to start');
                 setMode('start');
                 setError(null);
                 console.log('Start mode activated'); // Add logging
@@ -351,6 +377,7 @@ const MapSection: React.FC = () => {
             <button
               onClick={(e) => {
                 e.preventDefault(); // Prevent any default button behavior
+                console.log('End button clicked, changing mode from', mode, 'to end');
                 setMode('end');
                 setError(null);
                 console.log('End mode activated'); // Add logging
@@ -363,6 +390,16 @@ const MapSection: React.FC = () => {
               }`}
             >
               2. Select End Point
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                resetMap();
+                console.log('Map reset triggered');
+              }}
+              className="px-4 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50"
+            >
+              Reset Map
             </button>
           </div>
         </div>
@@ -396,6 +433,16 @@ const MapSection: React.FC = () => {
               </div>
             )}
           </motion.div>
+        </div>
+        
+        <div className="mt-4 flex justify-center gap-3">
+          <button
+            onClick={placeStartMarkerAtCenter}
+            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg"
+          >
+            Place Start At Center
+          </button>
+          {/* Add similar function for end marker */}
         </div>
       </div>
     </motion.section>
