@@ -44,6 +44,7 @@ const MapSection: React.FC = () => {
   const map = useRef<mapboxgl.Map | null>(null);
   const startMarker = useRef<mapboxgl.Marker | null>(null);
   const endMarker = useRef<mapboxgl.Marker | null>(null);
+  const routePopup = useRef<mapboxgl.Popup | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [calcTime, setCalcTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,10 +82,17 @@ const MapSection: React.FC = () => {
       endMarker.current = null;
     }
     
+    // Also remove the popup
+    if (routePopup.current) {
+      routePopup.current.remove();
+      routePopup.current = null;
+    }
+    
     clearRoute();
     setCalcTime(null);
     setError(null);
     setMode('idle');
+    setMarkerCount(0);
     console.log('Map reset complete');
   }, [clearRoute]);
 
@@ -154,8 +162,17 @@ const MapSection: React.FC = () => {
           ? `${(distance * 1000).toFixed(0)} m` 
           : `${distance.toFixed(2)} km`;
         
+        // Remove any existing popup
+        if (routePopup.current) {
+          routePopup.current.remove();
+        }
+        
         // Create and add popup
-        const popup = new mapboxgl.Popup({ closeButton: false, className: 'route-popup' })
+        routePopup.current = new mapboxgl.Popup({ 
+          closeButton: false, 
+          className: 'route-popup',
+          closeOnClick: false // Prevent closing when clicking the map
+        })
           .setLngLat([midpoint.lng, midpoint.lat])
           .setHTML(`
             <div class="p-2 text-center">
