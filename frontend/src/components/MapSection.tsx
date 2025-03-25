@@ -147,7 +147,7 @@ const MapSection: React.FC = () => {
     if (!map.current || path.length === 0) return;
     
     // Generate unique IDs for this route
-    const routeId = `route-${routes.length}`;
+    const routeId = `route-${Date.now()}`;  // Use timestamp for truly unique IDs
     const sourceId = `source-${routeId}`;
     const layerId = routeId;
     const outlineLayerId = `${routeId}-outline`;
@@ -220,8 +220,8 @@ const MapSection: React.FC = () => {
         routePopup.current = new mapboxgl.Popup({ 
           closeButton: false, 
           className: 'route-popup',
-          closeOnClick: false, // Prevent closing when clicking the map
-          closeOnMove: false // Prevent closing when map moves
+          closeOnClick: false, 
+          closeOnMove: false 
         })
           .setLngLat([midpoint.lng, midpoint.lat])
           .setHTML(`
@@ -232,14 +232,31 @@ const MapSection: React.FC = () => {
             </div>
           `)
           .addTo(map.current);
+        
+        // Store the completed route once it's actually drawn
+        if (startMarker.current && endMarker.current) {
+          // Now that we have all components, store the route
+          const newRouteItem: RouteItem = {
+            startMarker: startMarker.current,
+            endMarker: endMarker.current,
+            popup: routePopup.current,
+            sourceId: sourceId,
+            layerId: layerId,
+            outlineLayerId: outlineLayerId,
+          };
+          
+          setRoutes(prev => [...prev, newRouteItem]);
+        }
       }
       
       console.log('Route drawn successfully with', path.length, 'points');
+      return { sourceId, layerId, outlineLayerId }; // Return IDs for reference
     } catch (err) {
       console.error('Error drawing route:', err);
       setError('Failed to display route');
+      return null;
     }
-  }, [calcTime, routes]);
+  }, [calcTime]);
 
   // Calculate route
   const calculateRoute = useCallback(async () => {
@@ -303,37 +320,20 @@ const MapSection: React.FC = () => {
     
     // If we have both markers already, start a new route sequence
     if (startMarker.current && endMarker.current) {
-      // Store the completed route before starting a new one
-      const routeId = `route-${routes.length}`;
+      // Don't store the route here - it will be stored in drawRoute after path is calculated
       
-      // Make sure we have a source ID, layer ID and outline layer ID to store
-      const sourceId = `source-${routeId}`;
-      const layerId = routeId;
-      const outlineLayerId = `${routeId}-outline`;
-      
-      const newRouteItem: RouteItem = {
-        startMarker: startMarker.current,
-        endMarker: endMarker.current,
-        popup: routePopup.current, // This may be null but that's OK
-        sourceId: sourceId,
-        layerId: layerId,
-        outlineLayerId: outlineLayerId,
-      };
-      
-      setRoutes(prev => [...prev, newRouteItem]);
-      
-      // Create new markers instead of nullifying the current ones
+      // Reset markers to start a new route
       startMarker.current = null;
       endMarker.current = null;
-      routePopup.current = null;
+      routePopup.current = null; // Don't remove it from map yet
       setMarkerCount(0);
     }
     
-    // Rest of the function stays the same...
+    // Rest of function remains the same
     // Determine if this is the first or second marker
     const isFirstMarker = !startMarker.current;
     
-    // Create marker element with the appropriate color
+    // Create marker element
     const el = document.createElement('div');
     el.className = 'marker';
     el.style.width = '25px';
@@ -351,14 +351,14 @@ const MapSection: React.FC = () => {
       .setLngLat(lngLat)
       .addTo(map.current);
     
-    // Add a dragend event to recalculate route when markers are moved
+    // Add dragend event handler
     marker.on('dragend', () => {
       if (startMarker.current && endMarker.current) {
         calculateRoute();
       }
     });
     
-    // Update the appropriate marker reference
+    // Update marker reference
     if (isFirstMarker) {
       startMarker.current = marker;
       setMarkerCount(1);
@@ -368,11 +368,11 @@ const MapSection: React.FC = () => {
       setMarkerCount(2);
       console.log('End marker placed');
       
-      // Calculate route automatically once we have both markers
+      // Calculate route automatically
       calculateRoute();
     }
-  }, [calculateRoute, routes]);
-  
+  }, [calculateRoute]);
+
   // Initialize map - Fix the mapClickHandler reference
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
