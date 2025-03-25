@@ -18,11 +18,12 @@ from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 import time
 from datetime import datetime, timedelta
 import asyncio
+from app.middleware.rate_limiter import rate_limiter
 
 settings = get_settings()
 
 app = FastAPI(
-    title="Navigation System API",
+    title="NaviWasm API",
     description="A real-time navigation system with Rust WASM pathfinding",
     version="1.0.0"
 )
@@ -110,7 +111,7 @@ async def cleanup_old_rate_limits():
 app.include_router(
     api_router, 
     prefix="/api/v1", 
-    dependencies=[Depends(rate_limiter)]
+    dependencies=[Depends(rate_limiter.check_rate_limit)]
 )
 
 # Add exception handlers

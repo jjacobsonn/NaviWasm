@@ -38,6 +38,7 @@ class NavigationService:
 
         self.calculation_count = 0
         self.cache = {}
+        self.cache_hits = 0  # Track cache effectiveness
 
     def _get_cache_key(self, start: Coordinates, end: Coordinates) -> str:
         """Generate a cache key based on start and end coordinates"""
@@ -68,6 +69,7 @@ class NavigationService:
         # Check cache first
         cache_key = self._get_cache_key(start, end)
         if cache_key in self.cache:
+            self.cache_hits += 1
             return self.cache[cache_key]
         
         try:

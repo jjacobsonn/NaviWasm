@@ -14,6 +14,8 @@ async def get_metrics():
         "cpu_usage_percent": psutil.cpu_percent(),
         "memory_usage_percent": psutil.virtual_memory().percent,
         "active_threads": len(psutil.Process().threads()),
-        # Use getattr to safely access the attribute
-        "route_calculation_count": getattr(navigation_service, 'calculation_count', 0)
+        "route_calculation_count": getattr(navigation_service, 'calculation_count', 0),
+        "cache_hits": getattr(navigation_service, 'cache_hits', 0),
+        "cache_size": len(getattr(navigation_service, 'cache', {})),
+        "using_wasm": getattr(navigation_service, 'use_wasm', False)
     }
