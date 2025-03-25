@@ -1,4 +1,12 @@
-from pydantic_settings import BaseSettings
+import os
+
+# Try to import from pydantic_settings, fall back to pydantic
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    from pydantic import BaseSettings
+    print("Warning: pydantic_settings not found, falling back to pydantic BaseSettings")
+
 from functools import lru_cache
 from typing import List
 

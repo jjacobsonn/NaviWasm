@@ -73,6 +73,74 @@ const MapSection: React.FC = () => {
     console.log('Map reset complete');
   }, [clearRoute]);
 
+  // Draw route on map
+  const drawRoute = useCallback((path: Coordinates[]) => {
+    if (!map.current || path.length === 0) return;
+    
+    // Clear any existing route
+    if (map.current.getLayer('route')) {
+      map.current.removeLayer('route');
+    }
+    if (map.current.getLayer('route-outline')) {
+      map.current.removeLayer('route-outline');
+    }
+    if (map.current.getSource('route')) {
+      map.current.removeSource('route');
+    }
+    
+    try {
+      // Create a GeoJSON source for the route
+      const geojson = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: path.map(point => [point.lng, point.lat])
+        }
+      };
+      
+      // Add the source to the map
+      map.current.addSource('route', {
+        type: 'geojson',
+        data: geojson as any
+      });
+      
+      // Add outline and route layers
+      map.current.addLayer({
+        id: 'route-outline',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 8
+        }
+      });
+      
+      map.current.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#4338ca',
+          'line-width': 4
+        }
+      });
+      
+      console.log('Route drawn successfully with', path.length, 'points');
+    } catch (err) {
+      console.error('Error drawing route:', err);
+      setError('Failed to display route');
+    }
+  }, []);
+
   // Calculate route
   const calculateRoute = useCallback(async () => {
     if (!map.current || !startMarker.current || !endMarker.current) {
@@ -122,67 +190,6 @@ const MapSection: React.FC = () => {
       setIsLoading(false);
     }
   }, [drawRoute]);
-  
-  // Draw route on map
-  const drawRoute = useCallback((path: Coordinates[]) => {
-    if (!map.current || path.length === 0) return;
-    
-    clearRoute();
-    
-    try {
-      // Create a GeoJSON source for the route
-      const geojson = {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: path.map(point => [point.lng, point.lat])
-        }
-      };
-      
-      // Add the source to the map
-      map.current.addSource('route', {
-        type: 'geojson',
-        data: geojson as any
-      });
-      
-      // Add an outline for the route
-      map.current.addLayer({
-        id: 'route-outline',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#ffffff',
-          'line-width': 8
-        }
-      });
-      
-      // Add the route line itself
-      map.current.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#4338ca',
-          'line-width': 4
-        }
-      });
-      
-      // Don't automatically fit bounds or zoom
-      console.log('Route drawn successfully with', path.length, 'points');
-    } catch (err) {
-      console.error('Error drawing route:', err);
-      setError('Failed to display route');
-    }
-  }, [clearRoute]);
   
   // Handle map clicks
   const handleMapClick = useCallback((e: mapboxgl.MapMouseEvent) => {
