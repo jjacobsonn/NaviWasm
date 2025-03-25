@@ -454,37 +454,12 @@ const MapSection: React.FC = () => {
           </motion.p>
         </div>
         
-        <div className="max-w-5xl mx-auto mb-8">
-          <div className="flex flex-col items-center gap-3 justify-center mb-4">
-            <div className="text-center mb-2">
-              <span className="text-gray-600 font-medium">
-                {markerCount === 0 ? 'Click to place starting point' : 
-                 markerCount === 1 ? 'Click to place destination point' : 
-                 'Route calculated - click anywhere to start a new route'}
-              </span>
-            </div>
-            
-            <button
-              onClick={resetMap}
-              className="px-6 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
-            >
-              Reset Map
-            </button>
-          </div>
-          
-          {routes.length > 0 && (
-            <div className="mt-2 text-center">
-              <p className="text-sm text-gray-500">{routes.length} route{routes.length !== 1 ? 's' : ''} on map</p>
-            </div>
-          )}
-        </div>
-        
         <div className="max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative rounded-xl overflow-hidden shadow-xl border border-gray-200 h-[600px]"
+            className="relative rounded-xl overflow-hidden shadow-xl border border-gray-200 h-[600px] mb-6"
           >
             <div 
               ref={mapContainer} 
@@ -500,6 +475,30 @@ const MapSection: React.FC = () => {
               </div>
             )}
           </motion.div>
+          
+          {/* Status text and button UNDER the map */}
+          <div className="flex flex-col items-center gap-3 justify-center mt-4">
+            <div className="text-center mb-2">
+              <span className="text-gray-600 font-medium">
+                {markerCount === 0 ? 'Click to place starting point' : 
+                 markerCount === 1 ? 'Click to place destination point' : 
+                 'Route calculated - click anywhere to start a new route'}
+              </span>
+            </div>
+            
+            <button
+              onClick={resetMap}
+              className="px-6 py-2 rounded-lg font-medium shadow-sm border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
+            >
+              Reset Map
+            </button>
+            
+            {routes.length > 0 && (
+              <div className="mt-2 text-center">
+                <p className="text-sm text-gray-500">{routes.length} route{routes.length !== 1 ? 's' : ''} on map</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </motion.section>
