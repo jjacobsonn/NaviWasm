@@ -60,7 +60,7 @@ class NavigationService:
         start: Coordinates,
         end: Coordinates
     ) -> RouteResponse:
-        # Increment the calculation counter
+        # Increment counter for metrics
         self.calculation_count += 1
 
         start_time = time.perf_counter()

@@ -1,13 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body
 from app.models.navigation import RouteRequest, RouteResponse
-from app.services.navigation_service import NavigationService
+from app.services.service_locator import navigation_service
 
 router = APIRouter()
-navigation_service = NavigationService()
 
 @router.post("/route", response_model=RouteResponse)
-async def calculate_route(request: RouteRequest):
-    try:
-        return await navigation_service.calculate_route(request.start, request.end)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def calculate_route(request: RouteRequest = Body(...)):
+    """Calculate a route between two points"""
+    return await navigation_service.calculate_route(request.start, request.end)
